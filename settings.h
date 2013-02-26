@@ -1,12 +1,15 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#define DELETE_IF_NOT_NULL(x) if (x != NULL){delete x;x = NULL;}
+
 #include <QDialog>
 
 class QNetworkAccessManager;
 class QNetworkProxy;
 class QNetworkReply;
 class QAuthenticator;
+class QNetworkRequest;
 class QSettings;
 
 namespace Ui {
@@ -25,7 +28,7 @@ public slots:
     virtual void reject();
     virtual void show();
     virtual void systemProxyChecked(int);
-    virtual void test();
+    virtual void getDevices();
     virtual void executeTest();
     virtual void handleResponse(QByteArray &response);
 private:
@@ -36,7 +39,8 @@ private:
     QSystemTrayIcon *tray;
     QMenu *menu;
     QNetworkAccessManager *networkaccess;
-    bool showResult = false;
+    bool showResult;
+    void addAuthentication(QNetworkRequest &request);
 protected slots:
     void replyReceived(QNetworkReply* reply);
     void proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator );

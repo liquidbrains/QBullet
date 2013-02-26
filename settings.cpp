@@ -8,6 +8,7 @@
 #include <QNetworkReply>
 #include <QSettings>
 #include <QJsonValue>
+#include <QJsonDocument>
 #include <logindialog.h>
 
 Settings::Settings(QWidget *parent) :
@@ -18,21 +19,28 @@ Settings::Settings(QWidget *parent) :
     networkaccess(new QNetworkAccessManager(this)),
     settings(new QSettings(__FILE__,"QBullet",this)),
     settingsAction(new QAction("&Settings",this)),
-    exitAction(new QAction("&Exit",this))
+    exitAction(new QAction("&Exit",this)),
+    showResult(true)
 {
     ui->setupUi(this);
 
-
-    QNetworkProxyFactory::setUseSystemConfiguration(true);
-    QNetworkProxyQuery npq(QUrl("https://www.pushbullet.com/api/pushes"));
-    QList<QNetworkProxy> proxies = QNetworkProxyFactory::systemProxyForQuery(npq);
-
-    if (proxies.count() > 0)
+    if (settings->value("systemProxy",true).toBool())
     {
-        networkaccess->setProxy(proxies[0]);
+        QNetworkProxyFactory::setUseSystemConfiguration(true);
+        QNetworkProxyQuery npq(QUrl("https://www.pushbullet.com/api/pushes"));
+        QList<QNetworkProxy> proxies = QNetworkProxyFactory::systemProxyForQuery(npq);
+
+        if (proxies.count() > 0)
+        {
+            networkaccess->setProxy(proxies[0]);
+        }
+    }else
+    {
+        QNetworkProxyFactory::setUseSystemConfiguration(false);
+        //QNetworkProxy proxy() /// Crap... Need to have a proxy type.
     }
 
-    QAction *test = new QAction ("&Test",this);
+    QAction *test = new QAction ("&Update Devices",this);
 
     connect(tray,SIGNAL(activated(QSystemTrayIcon::ActivationReason)),menu,SLOT(internalDelayedPopup()));
     connect(networkaccess, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyReceived(QNetworkReply*)));
@@ -50,7 +58,7 @@ Settings::Settings(QWidget *parent) :
     menu->addAction(exitAction);
     connect(exitAction,SIGNAL(triggered()),this,SLOT(close()));
     menu->addAction(test);
-    connect(test,SIGNAL(triggered()),this,SLOT(test()));
+    connect(test,SIGNAL(triggered()),this,SLOT(getDevices()));
     tray->setContextMenu(menu);
 
     if (settings->value("apiKey","").toString().isEmpty())
@@ -58,7 +66,7 @@ Settings::Settings(QWidget *parent) :
         show();
     }else
     {
-        this->test();
+        this->getDevices();
     }
 }
 
@@ -86,7 +94,7 @@ void Settings::replyReceived(QNetworkReply* reply)
         handleResponse(data);
 
     }else
-        if (reply->error() != 200)
+        if (reply->error() != 0)
         {
             show();
             QMessageBox::warning(this,"Error received","The following error was received from pushbullet: "+data);
@@ -113,14 +121,17 @@ void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthe
     /**
      * TODO Define this
      */
-//    DELETE_IF_NOT_NULL(login);
+    DELETE_IF_NOT_NULL(login);
 }
 
 void Settings::accept()
 {
     settings->setValue("firststart",false);
     settings->setValue("apiKey",ui->txtAPIKey->text());
-
+    settings->setValue("systemProxy",ui->cbSystemProxy->checkState()== Qt::Checked);
+    settings->setValue("proxyUser",ui->txtProxyUsername->text());
+    settings->setValue("proxyPassword",ui->txtProxyPassword->text());
+    settings->setValue("proxyServer",ui->txtProxyServer->text());
     /**
      * TODO: Save Screen values.
      * Set Proxy
@@ -144,8 +155,11 @@ void Settings::show()
     ui->cbSystemProxy->setChecked(settings->value("systemProxy",true).toBool());
     ui->txtAPIKey->setText(settings->value("apiKey","").toString());
     ui->txtProxyServer->setEnabled(settings->value("systemProxy",true).toBool() == false);
+    ui->txtProxyServer->setText(settings->value("proxyServer","").toString());
     ui->txtProxyUsername->setEnabled(settings->value("systemProxy",true).toBool() == false);
+    ui->txtProxyUsername->setText(settings->value("proxyUser","").toString());
     ui->txtProxyPassword->setEnabled(settings->value("systemProxy",true).toBool() == false);
+    ui->txtProxyPassword->setText(settings->value("proxyPassword","").toString());
 
     QDialog::show();
 }
@@ -162,28 +176,29 @@ void Settings::executeTest()
 {
     showResult = true;
     settings->setValue("apiKey",ui->txtAPIKey->text());
-    test();
+    getDevices();
 }
 
-void Settings::test()
+void Settings::getDevices()
 {
-#ifndef QT_NO_SSL
     QUrl url("https://www.pushbullet.com/api/devices");
     QNetworkRequest qnr(url);
-    QString header = "Basic ";
-    header+=(settings->value("apiKey","").toString()+":").toLatin1().toBase64();
-    qnr.setRawHeader(QString("Authorization").toLatin1(),header.toLatin1());
-//    url.setUserName(settings->value("apiKey","").toString());
+    addAuthentication(qnr);
     networkaccess->get(qnr);
-
-#else
-    qDebug() << "SHITSHITSHIT No SSL!"
-#endif
 }
 
+void Settings::addAuthentication(QNetworkRequest &request)
+{
+    QString header = "Basic ";
+    header+=(settings->value("apiKey","").toString()+":").toLatin1().toBase64();
+    request.setRawHeader(QString("Authorization").toLatin1(),header.toLatin1());
+}
 
 void Settings::handleResponse(QByteArray &response)
 {
     QMessageBox::information(this,"Reply Received",response);
-    QJsonValue jsov()
+    /*QJsonDocument &jsod = QJsonDocument::fromJson(response);
+
+    if (jsod.array()
+*/
 }
