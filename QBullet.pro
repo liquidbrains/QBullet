@@ -24,3 +24,6 @@ FORMS    += settings.ui \
 
 OTHER_FILES += \
     QBullet.png
+
+RESOURCES += \
+    resources.qrc
