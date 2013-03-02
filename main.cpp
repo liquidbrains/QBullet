@@ -9,7 +9,8 @@ int main(int argc, char *argv[])
     a.setApplicationVersion("0.1");
     a.setOrganizationName("Wian Potgieter");
     Settings w;
-//    w.show();
-    
+    w.loadConfig();
+    w.getDevices();
+
     return a.exec();
 }
