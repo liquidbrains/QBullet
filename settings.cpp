@@ -11,6 +11,7 @@
 #include <QCloseEvent>
 #include <QJsonValue>
 #include <QFileDialog>
+#include <QApplication>
 #include <QJsonObject>
 #include <QHttpMultiPart>
 #include <QHttpPart>
@@ -44,19 +45,23 @@ Settings::Settings(QWidget *parent) :
     setWindowIcon(QIcon(":icons/QBullet.png"));
     QApplication::setWindowIcon(QIcon(":icons/QBullet.png"));
 
-    noteMenu = menu->addMenu("&Note");
-    addressMenu = menu->addMenu("&Address");
-    listMenu = menu->addMenu("&List");
-    fileMenu = menu->addMenu("&File");
-    linkMenu = menu->addMenu("L&ink");
+    clipboardMenu = menu->addMenu("Clipboard to");
+    noteMenu = menu->addMenu("Note to");
+    addressMenu = menu->addMenu("Address to");
+    listMenu = menu->addMenu("List to");
+    fileMenu = menu->addMenu("File to");
+    linkMenu = menu->addMenu("Link to");
 
     menu->addSeparator();
     menu->addAction("&Settings",this,SLOT(show()));
     menu->addAction("&Update Devices",this,SLOT(getDevices()));
     menu->addSeparator();
     menu->addAction("&Exit",this,SLOT(exit()));
+    menu->addAction("&About",this,SLOT(about()));
+    //menu->addAction("&About Qt",this,SLOT(aboutQt()));
 
     tray->setContextMenu(menu);
+
 
     /*if (settings->value("apiKey","").toString().isEmpty())
     {
@@ -76,14 +81,19 @@ Settings::~Settings()
 void Settings::replyReceived(QNetworkReply* reply)
 {
     QByteArray data = reply->readAll();
-    if (reply->error() != 0)
+    qDebug() << "In " << QString(__FUNCTION__);
+    qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    qDebug() << reply->error() << " " << reply->errorString();
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
     {
-        show();
+        handleError(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),reply->errorString());
+    }else
+    {
+        handleResponse(data);
     }
 
-    handleResponse(data);
-
     showResult = false;
+    qDebug() << "Out " << QString(__FUNCTION__);
 }
 
 void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
@@ -221,6 +231,7 @@ void Settings::addAuthentication(QNetworkRequest &request)
 
 void Settings::handleResponse(QByteArray &response)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
 //    QMessageBox::information(0,"Reply Received",response);
     qDebug() << response;
 
@@ -231,12 +242,7 @@ void Settings::handleResponse(QByteArray &response)
     processDevices(jsoo["devices"]);
     processSharedDevices(jsoo["shared_devices"]);
     processResponse(jsoo["created"]);
-
-    qDebug() << "JSOO has " << jsoo.keys().count() << " keys.";
-    if (jsoo.keys().count() > 0)
-    {
-        qDebug() << "Key 0: " << jsoo.keys().begin().operator *();
-    }
+    qDebug() << "Out " << QString(__FUNCTION__);
 }
 
 bool Settings::eventFilter(QObject *, QEvent *event)
@@ -280,6 +286,7 @@ void Settings::processDevices(const QJsonValue &response)
     DELETE_IF_NOT_NULL(foo);
     foo = new QObject(this);
 
+    clipboardMenu->clear();
     noteMenu->clear();
     addressMenu->clear();
     listMenu->clear();
@@ -313,6 +320,7 @@ void Settings::processSharedDevices(const QJsonValue &response)
 
     QJsonArray devices(response.toArray());
 
+    clipboardMenu->addSeparator();
     noteMenu->addSeparator();
     addressMenu->addSeparator();
     listMenu->addSeparator();
@@ -345,9 +353,50 @@ void Settings::processResponse(const QJsonValue &response)
         return;
 
 }
-void Settings::sendNote(QString /*deviceDescription*/, int /*id*/)
+void Settings::sendNote(QString deviceDescription, int id)
 {
+    try{
+        qDebug() << "In " << QString(__FUNCTION__);
+        QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
+        QHttpPart devicePart;
+        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device\""));
+        devicePart.setBody(QString::number(id).toLatin1());
+
+        QHttpPart typePart;
+        typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+        typePart.setBody("note");
+
+        QHttpPart titlePart;
+        titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"title\""));
+        titlePart.setBody("A NOTE TITLE");
+
+        QHttpPart notePart;
+        notePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"body\""));
+        notePart.setBody("NOTE BODY HAHAHAHAHAHAHAHHAHAHA");
+
+        multiPart->append(devicePart);
+        multiPart->append(typePart);
+        multiPart->append(titlePart);
+        multiPart->append(notePart);
+
+        qDebug() << multiPart;
+
+        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+        addAuthentication(request);
+
+        QNetworkReply *reply = networkaccess->post(request, multiPart);
+        multiPart->setParent(reply); // delete the multiPart with the reply
+    }catch (std::exception ex)
+    {
+        qDebug() << ex.what();
+    }
+    catch (...)
+    {
+        std::cerr << "well fuck."<<std::endl;
+    }
+    qDebug() << "Out " << QString(__FUNCTION__);
+    return;
 }
 
 void Settings::sendAddress(QString /*deviceDescription*/, int /*id*/)
@@ -368,58 +417,49 @@ void Settings::sendLink(QString /*deviceDescription*/, int /*id*/)
 void Settings::sendFile(QString deviceDescription, int id)
 {
     try{
-    QString fileName(QFileDialog::getOpenFileName(menu,"Select file to be sent to: "+deviceDescription));
+        QString fileName(QFileDialog::getOpenFileName(NULL,"Select file to be sent to: "+deviceDescription));
 
-    if (fileName.isEmpty())
-    {
-        tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
-        return;
-    }
+        if (fileName.isEmpty())
+        {
+            tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
+            return;
+        }
 
-    QFile *file = new QFile(fileName);
-    if (file->size() > 10*1024*1024)
-    {
-        tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
-        delete file;
-        return;
-    }
+        QFile *file = new QFile(fileName);
+        if (file->size() > 10*1024*1024)
+        {
+            tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
+            delete file;
+            return;
+        }
 
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+        QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
-    QHttpPart textPart;
-    textPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device\""));
-    textPart.setBody(QString::number(id).toLatin1());
+        QHttpPart textPart;
+        textPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device\""));
+        textPart.setBody(QString::number(id).toLatin1());
 
-    QHttpPart typePart;
-    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-    typePart.setBody("file");
+        QHttpPart typePart;
+        typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+        typePart.setBody("file");
 
-    QHttpPart filePart;
-    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("image/jpeg"));
-    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\""));
+        QHttpPart filePart;
+        filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("image/jpeg"));
+        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\""));
 
-    file->open(QIODevice::ReadOnly);
-    filePart.setBodyDevice(file);
-    file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+        file->open(QIODevice::ReadOnly);
+        filePart.setBodyDevice(file);
+        file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
 
-    multiPart->append(textPart);
-    multiPart->append(typePart);
-    multiPart->append(filePart);
+        multiPart->append(textPart);
+        multiPart->append(typePart);
+        multiPart->append(filePart);
 
-    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
-    addAuthentication(request);
+        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+        addAuthentication(request);
 
-    QNetworkAccessManager manager;
-    QNetworkReply *reply = manager.post(request, multiPart);
-    multiPart->setParent(reply); // delete the multiPart with the reply
-    if(reply->waitForReadyRead(-1))
-    {
-        qDebug()<< reply->error();
-        qDebug()<<reply->errorString();
-        qDebug()<< reply->readAll();
-    }
-    qDebug()<< reply->error();
-    qDebug()<<reply->errorString();
+        QNetworkReply *reply = networkaccess->post(request, multiPart);
+        multiPart->setParent(reply); // delete the multiPart with the reply
     }catch (std::exception ex)
     {
         qDebug() << ex.what();
@@ -429,4 +469,57 @@ void Settings::sendFile(QString deviceDescription, int id)
         std::cerr << "well fuck."<<std::endl;
     }
     return;
+}
+
+void Settings::sendClipboard(QString /*deviceDescription*/, int /*id*/)
+{
+
+}
+
+void Settings::handleError(int errorCode, QString serverMessage)
+{
+
+    QString error;
+    switch (errorCode)
+    {
+    case 400:
+        error = "Missing Parameter.  Please check for an updated version of this software.";
+        break;
+    case 401:
+        show();
+        ui->txtAPIKey->selectAll();
+        ui->txtAPIKey->setFocus();
+        error = "No Valid API key provided";
+        break;
+    case 402:
+        error = "Request failed.  Please check your device and try again.";
+        break;
+    case 403:
+        show();
+        ui->txtAPIKey->selectAll();
+        ui->txtAPIKey->setFocus();
+        error = "Your API key is not valid for this request or to this device.";
+        break;
+    case 404:
+        error = "The requested item doesn't exist.  Please check for an updated version of this software.";
+        break;
+    default:
+        error = "Something went wrong on PushBullet's side.  Error "+QString::number(errorCode)+": \n"+serverMessage;
+    }
+
+    QMessageBox::critical(this,"An error occurred",error);
+
+}
+
+
+void Settings::shitfuckshit()
+{
+
+    qDebug()    << "oh for fucks sakes";
+}
+
+void Settings::about()
+{
+    qApp->aboutQt();
+    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\rVersion: "+qApp->applicationVersion());
 }

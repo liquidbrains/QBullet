@@ -35,9 +35,11 @@ public slots:
     virtual bool eventFilter(QObject *, QEvent *event);
     virtual void exit();
     virtual void closeEvent(QCloseEvent *);
+    virtual void shitfuckshit();
 private:
     Ui::Settings *ui;
     QSettings *settings;
+    QMenu *clipboardMenu;
     QMenu *noteMenu;
     QMenu *addressMenu;
     QMenu *listMenu;
@@ -57,10 +59,14 @@ protected slots:
     void replyReceived(QNetworkReply* reply);
     void proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator );
     void sendNote(QString deviceDescription, int id);
+    void sendClipboard(QString deviceDescription, int id);
     void sendAddress(QString deviceDescription, int id);
     void sendList(QString deviceDescription, int id);
     void sendLink(QString deviceDescription, int id);
     void sendFile(QString deviceDescription, int id);
+    void handleError(int errorCode, QString serverMessage);
+    void about();
+
 };
 
 #endif // SETTINGS_H
