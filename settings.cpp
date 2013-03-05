@@ -9,6 +9,7 @@
 #include <QNetworkReply>
 #include <QSettings>
 #include <QCloseEvent>
+#include <QHeaderView>
 #include <QJsonValue>
 #include <QFileDialog>
 #include <QApplication>
@@ -61,7 +62,6 @@ Settings::Settings(QWidget *parent) :
     //menu->addAction("&About Qt",this,SLOT(aboutQt()));
 
     tray->setContextMenu(menu);
-
 
     /*if (settings->value("apiKey","").toString().isEmpty())
     {
@@ -292,12 +292,18 @@ void Settings::processDevices(const QJsonValue &response)
     listMenu->clear();
     fileMenu->clear();
     linkMenu->clear();
+    ui->tblDevicesList->clear();
 
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
+        ui->tblDevicesList->setItem(i,0,new QTableWidgetItem(QString::number((int)device["id"].toDouble())));
+        ui->tblDevicesList->setItem(i,1,new QTableWidgetItem("Yours"));
+        ui->tblDevicesList->setItem(i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
+        ui->tblDevicesList->setItem(i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
+        ui->tblDevicesList->setItem(i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
-        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+"("+QString::number((int)device["id"].toDouble())+")");
+        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
         Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
         connect(bullet,SIGNAL(sendNote(QString,int)),this,SLOT(sendNote(QString,int)));
@@ -327,11 +333,20 @@ void Settings::processSharedDevices(const QJsonValue &response)
     fileMenu->addSeparator();
     linkMenu->addSeparator();
 
+    int starting_row = ui->tblDevicesList->rowCount()
+            ;
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
 
-        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+"("+QString::number((int)device["id"].toDouble())+")");
+        ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(QString::number((int)device["id"].toDouble())));
+        ui->tblDevicesList->setItem(starting_row+i,1,new QTableWidgetItem("Yours"));
+        ui->tblDevicesList->setItem(starting_row+i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
+        ui->tblDevicesList->setItem(starting_row+i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
+        ui->tblDevicesList->setItem(starting_row+i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
+
+        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
+
         Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
         connect(bullet,SIGNAL(sendNote(QString,int)),this,SLOT(sendNote(QString,int)));
