@@ -241,6 +241,17 @@ void Settings::handleResponse(QByteArray &response)
 
     processDevices(jsoo["devices"]);
     processSharedDevices(jsoo["shared_devices"]);
+    QTableWidgetItem *h = new QTableWidgetItem("ID");
+    ui->tblDevicesList->setHorizontalHeaderItem(0,h);
+    h = new QTableWidgetItem("Owner");
+    ui->tblDevicesList->setHorizontalHeaderItem(1,h);
+    h = new QTableWidgetItem("Manufacturer");
+    ui->tblDevicesList->setHorizontalHeaderItem(2,h);
+    h = new QTableWidgetItem("Model");
+    ui->tblDevicesList->setHorizontalHeaderItem(3,h);
+    h = new QTableWidgetItem("Android Version");
+    ui->tblDevicesList->setHorizontalHeaderItem(4,h);
+    ui->tblDevicesList->doItemsLayout();
     processResponse(jsoo["created"]);
     qDebug() << "Out " << QString(__FUNCTION__);
 }
@@ -294,6 +305,7 @@ void Settings::processDevices(const QJsonValue &response)
     linkMenu->clear();
     ui->tblDevicesList->clear();
 
+    ui->tblDevicesList->setRowCount(devices.count());
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
@@ -333,14 +345,14 @@ void Settings::processSharedDevices(const QJsonValue &response)
     fileMenu->addSeparator();
     linkMenu->addSeparator();
 
-    int starting_row = ui->tblDevicesList->rowCount()
-            ;
+    int starting_row = ui->tblDevicesList->rowCount();
+    ui->tblDevicesList->setRowCount(starting_row+devices.count());
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
 
         ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(QString::number((int)device["id"].toDouble())));
-        ui->tblDevicesList->setItem(starting_row+i,1,new QTableWidgetItem("Yours"));
+        ui->tblDevicesList->setItem(starting_row+i,1,new QTableWidgetItem(device["owner_name"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
