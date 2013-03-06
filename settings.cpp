@@ -387,7 +387,7 @@ void Settings::sendNote(QString deviceDescription, int id)
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
         QHttpPart devicePart;
-        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device\""));
+        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
         devicePart.setBody(QString::number(id).toLatin1());
 
         QHttpPart typePart;
@@ -463,7 +463,7 @@ void Settings::sendFile(QString deviceDescription, int id)
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
         QHttpPart textPart;
-        textPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device\""));
+        textPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
         textPart.setBody(QString::number(id).toLatin1());
 
         QHttpPart typePart;
