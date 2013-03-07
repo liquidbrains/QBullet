@@ -17,6 +17,9 @@
 #include <QHttpMultiPart>
 #include <QHttpPart>
 #include <QJsonArray>
+#include <QMenu>
+#include <QMimeDatabase>
+#include <QSystemTrayIcon>
 #include <QJsonDocument>
 #include <bullet.h>
 
@@ -239,20 +242,25 @@ void Settings::handleResponse(QByteArray &response)
 
     QJsonObject jsoo(jsod.object());
 
-    processDevices(jsoo["devices"]);
-    processSharedDevices(jsoo["shared_devices"]);
-    QTableWidgetItem *h = new QTableWidgetItem("ID");
-    ui->tblDevicesList->setHorizontalHeaderItem(0,h);
-    h = new QTableWidgetItem("Owner");
-    ui->tblDevicesList->setHorizontalHeaderItem(1,h);
-    h = new QTableWidgetItem("Manufacturer");
-    ui->tblDevicesList->setHorizontalHeaderItem(2,h);
-    h = new QTableWidgetItem("Model");
-    ui->tblDevicesList->setHorizontalHeaderItem(3,h);
-    h = new QTableWidgetItem("Android Version");
-    ui->tblDevicesList->setHorizontalHeaderItem(4,h);
-    ui->tblDevicesList->doItemsLayout();
-    processResponse(jsoo["created"]);
+    if (jsoo.contains("devices"))
+    {
+        processDevices(jsoo["devices"]);
+        processSharedDevices(jsoo["shared_devices"]);
+        QTableWidgetItem *h = new QTableWidgetItem("ID");
+        ui->tblDevicesList->setHorizontalHeaderItem(0,h);
+        h = new QTableWidgetItem("Owner");
+        ui->tblDevicesList->setHorizontalHeaderItem(1,h);
+        h = new QTableWidgetItem("Manufacturer");
+        ui->tblDevicesList->setHorizontalHeaderItem(2,h);
+        h = new QTableWidgetItem("Model");
+        ui->tblDevicesList->setHorizontalHeaderItem(3,h);
+        h = new QTableWidgetItem("Android Version");
+        ui->tblDevicesList->setHorizontalHeaderItem(4,h);
+        ui->tblDevicesList->doItemsLayout();
+    }else
+    {
+        processResponse(jsoo);
+    }
     qDebug() << "Out " << QString(__FUNCTION__);
 }
 
@@ -374,11 +382,12 @@ void Settings::processSharedDevices(const QJsonValue &response)
     }
 }
 
-void Settings::processResponse(const QJsonValue &response)
+void Settings::processResponse(const QJsonObject &response)
 {
-    if (response.isNull())
+    if (response["created"].isNull())
         return;
 
+    tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to device "+QString::number(response["device_id"].toDouble()));
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
@@ -462,23 +471,26 @@ void Settings::sendFile(QString deviceDescription, int id)
 
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
-        QHttpPart textPart;
-        textPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-        textPart.setBody(QString::number(id).toLatin1());
+        QHttpPart devicePart;
+        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+        devicePart.setBody(QString::number(id).toLatin1());
 
         QHttpPart typePart;
         typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
         typePart.setBody("file");
 
         QHttpPart filePart;
-        filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("image/jpeg"));
-        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\""));
+        QMimeDatabase mdb;
+        QString fileNamePart(QFileInfo(fileName).fileName());
+        qDebug() << "Mime type: "<< mdb.mimeTypeForFile(fileName).name();
+        filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileName).name()));
+        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
 
         file->open(QIODevice::ReadOnly);
         filePart.setBodyDevice(file);
         file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
 
-        multiPart->append(textPart);
+        multiPart->append(devicePart);
         multiPart->append(typePart);
         multiPart->append(filePart);
 

@@ -11,6 +11,8 @@ class QNetworkReply;
 class QAuthenticator;
 class QNetworkRequest;
 class QSettings;
+class QSystemTrayIcon;
+class QMenu;
 
 namespace Ui {
 class Settings;
@@ -54,7 +56,7 @@ private:
     void addAuthentication(QNetworkRequest &request);
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);
-    void processResponse(const QJsonValue &);
+    void processResponse(const QJsonObject &);
 protected slots:
     void replyReceived(QNetworkReply* reply);
     void proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator );
