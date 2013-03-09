@@ -21,7 +21,11 @@
 #include <QMimeDatabase>
 #include <QSystemTrayIcon>
 #include <QJsonDocument>
+#include <QClipboard>
+#include <QMimeData>
+
 #include <bullet.h>
+#include <prompt.h>
 
 #include <logindialog.h>
 
@@ -34,7 +38,8 @@ Settings::Settings(QWidget *parent) :
     networkaccess(new QNetworkAccessManager(parent)),
     foo(NULL),
     showResult(true),
-    exitClicked(false)
+    exitClicked(false),
+    prompt(new Prompt(this))
 {
     ui->setupUi(this);
 
@@ -50,6 +55,7 @@ Settings::Settings(QWidget *parent) :
     QApplication::setWindowIcon(QIcon(":icons/QBullet.png"));
 
     clipboardMenu = menu->addMenu("Clipboard to");
+    connect(menu,SIGNAL(aboutToShow()),this,SLOT(renameClipboardMenu()));
     noteMenu = menu->addMenu("Note to");
     addressMenu = menu->addMenu("Address to");
     listMenu = menu->addMenu("List to");
@@ -65,15 +71,6 @@ Settings::Settings(QWidget *parent) :
     //menu->addAction("&About Qt",this,SLOT(aboutQt()));
 
     tray->setContextMenu(menu);
-
-    /*if (settings->value("apiKey","").toString().isEmpty())
-    {
-        show();
-    }else
-    {
-        this->getDevices();
-    }*/
-
 }
 
 Settings::~Settings()
@@ -292,7 +289,32 @@ void Settings::closeEvent(QCloseEvent *event)
         reject();
         event->ignore();
     }
+}
 
+void Settings::renameClipboardMenu()
+{
+    const QClipboard *clipboard = QApplication::clipboard();
+    const QMimeData *mimeData = clipboard->mimeData();
+
+
+    clipboardMenu->setEnabled(true);
+
+    if (mimeData->hasImage())
+    {
+        clipboardMenu->setTitle("Clipboard image to");
+    } else if (mimeData->hasHtml())
+    {
+        clipboardMenu->setTitle("Clipboard note to");
+    } else if (mimeData->hasUrls())
+    {
+        clipboardMenu->setTitle("Clipboard link to");
+    }else if (mimeData->hasText())
+    {
+        clipboardMenu->setTitle("Clipboard note to");
+    }
+    else{
+        clipboardMenu->setEnabled(false);
+    }
 }
 
 void Settings::processDevices(const QJsonValue &response)
@@ -330,12 +352,14 @@ void Settings::processDevices(const QJsonValue &response)
         connect(bullet,SIGNAL(sendList(QString,int)),this,SLOT(sendList(QString,int)));
         connect(bullet,SIGNAL(sendLink(QString,int)),this,SLOT(sendLink(QString,int)));
         connect(bullet,SIGNAL(sendFile(QString,int)),this,SLOT(sendFile(QString,int)));
+        connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,int)));
 
         noteMenu->addAction(deviceDescription,bullet,SLOT(sendNote()));
         addressMenu->addAction(deviceDescription,bullet,SLOT(sendAddress()));
         listMenu->addAction(deviceDescription,bullet,SLOT(sendList()));
         fileMenu->addAction(deviceDescription,bullet,SLOT(sendFile()));
         linkMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
+        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
     }
 }
 
@@ -373,12 +397,14 @@ void Settings::processSharedDevices(const QJsonValue &response)
         connect(bullet,SIGNAL(sendList(QString,int)),this,SLOT(sendList(QString,int)));
         connect(bullet,SIGNAL(sendLink(QString,int)),this,SLOT(sendLink(QString,int)));
         connect(bullet,SIGNAL(sendFile(QString,int)),this,SLOT(sendFile(QString,int)));
+        connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,int)));
 
         noteMenu->addAction(deviceDescription,bullet,SLOT(sendNote()));
         addressMenu->addAction(deviceDescription,bullet,SLOT(sendAddress()));
         listMenu->addAction(deviceDescription,bullet,SLOT(sendList()));
         fileMenu->addAction(deviceDescription,bullet,SLOT(sendFile()));
         linkMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
+        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
     }
 }
 
@@ -391,73 +417,87 @@ void Settings::processResponse(const QJsonObject &response)
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
-    try{
-        qDebug() << "In " << QString(__FUNCTION__);
-        QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-        QHttpPart devicePart;
-        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-        devicePart.setBody(QString::number(id).toLatin1());
-
-        QHttpPart typePart;
-        typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-        typePart.setBody("note");
-
-        QHttpPart titlePart;
-        titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"title\""));
-        titlePart.setBody("A NOTE TITLE");
-
-        QHttpPart notePart;
-        notePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"body\""));
-        notePart.setBody("NOTE BODY HAHAHAHAHAHAHAHHAHAHA");
-
-        multiPart->append(devicePart);
-        multiPart->append(typePart);
-        multiPart->append(titlePart);
-        multiPart->append(notePart);
-
-        qDebug() << multiPart;
-
-        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
-        addAuthentication(request);
-
-        QNetworkReply *reply = networkaccess->post(request, multiPart);
-        multiPart->setParent(reply); // delete the multiPart with the reply
-    }catch (std::exception ex)
+    if (prompt->showPrompt("Send note to "+deviceDescription,"title") != QDialog::Accepted)
     {
-        qDebug() << ex.what();
+        return;
     }
-    catch (...)
+
+    sendText(id,"note",prompt->getText(),"body",prompt->getText());
+}
+
+void Settings::sendAddress(QString deviceDescription, int id)
+{
+    if (prompt->showPrompt("Send address to "+deviceDescription,"name") != QDialog::Accepted)
     {
-        std::cerr << "well fuck."<<std::endl;
+        return;
     }
-    qDebug() << "Out " << QString(__FUNCTION__);
-    return;
+
+    sendText(id,"address",prompt->getText(),"address",prompt->getText());
 }
 
-void Settings::sendAddress(QString /*deviceDescription*/, int /*id*/)
+void Settings::sendList(QString deviceDescription, int id)
 {
+    if (prompt->showPrompt("Send list to "+deviceDescription,"title") != QDialog::Accepted)
+    {
+        return;
+    }
 
+    sendText(id,"list",prompt->getText(),"items",prompt->getText());
 }
 
-void Settings::sendList(QString /*deviceDescription*/, int /*id*/)
+void Settings::sendLink(QString deviceDescription, int id)
 {
+    if (prompt->showPrompt("Send link to "+deviceDescription,"title") != QDialog::Accepted)
+    {
+        return;
+    }
 
+    sendText(id,"link",prompt->getText(),"url",prompt->getText());
 }
 
-void Settings::sendLink(QString /*deviceDescription*/, int /*id*/)
+void Settings::sendText(int id, QString type, const QString title, QString contentType, const QString content)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
+    QHttpPart devicePart;
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setBody(QString::number(id).toLatin1());
+    multiPart->append(devicePart);
+
+    QHttpPart typePart;
+    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+    typePart.setBody(type.toLatin1());
+    multiPart->append(typePart);
+
+    QHttpPart titlePart;
+    titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\""+QString(contentType=="address"?"name":"title")+"\""));
+
+    titlePart.setBody(title.toUtf8());
+    multiPart->append(titlePart);
+
+    QHttpPart contentPart;
+    contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\""+contentType.toUtf8()+"\""));
+    contentPart.setBody(content.toUtf8());
+    multiPart->append(contentPart);
+
+    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    addAuthentication(request);
+
+    QNetworkReply *reply = networkaccess->post(request, multiPart);
+    multiPart->setParent(reply); // delete the multiPart with the reply
 }
 
 void Settings::sendFile(QString deviceDescription, int id)
 {
     try{
+        show();
         QString fileName(QFileDialog::getOpenFileName(NULL,"Select file to be sent to: "+deviceDescription));
 
         if (fileName.isEmpty())
         {
             tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
+            hide();
             return;
         }
 
@@ -466,6 +506,7 @@ void Settings::sendFile(QString deviceDescription, int id)
         {
             tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
             delete file;
+            hide();
             return;
         }
 
@@ -499,6 +540,7 @@ void Settings::sendFile(QString deviceDescription, int id)
 
         QNetworkReply *reply = networkaccess->post(request, multiPart);
         multiPart->setParent(reply); // delete the multiPart with the reply
+        hide();
     }catch (std::exception ex)
     {
         qDebug() << ex.what();
@@ -512,7 +554,22 @@ void Settings::sendFile(QString deviceDescription, int id)
 
 void Settings::sendClipboard(QString /*deviceDescription*/, int /*id*/)
 {
+    const QClipboard *clipboard = QApplication::clipboard();
+    const QMimeData *mimeData = clipboard->mimeData();
 
+
+    clipboardMenu->setEnabled(true);
+
+    if (mimeData->hasImage()) {
+        clipboardMenu->setTitle("Clipboard image to");
+    } else if (mimeData->hasHtml()) {
+        clipboardMenu->setTitle("Clipboard note to");
+    } else if (mimeData->hasText()) {
+        clipboardMenu->setTitle("Clipboard note to");
+    } else if (mimeData->hasUrls())
+    {
+        clipboardMenu->setTitle("Clipboard link to");
+    }
 }
 
 void Settings::handleError(int errorCode, QString serverMessage)
@@ -548,13 +605,6 @@ void Settings::handleError(int errorCode, QString serverMessage)
 
     QMessageBox::critical(this,"An error occurred",error);
 
-}
-
-
-void Settings::shitfuckshit()
-{
-
-    qDebug()    << "oh for fucks sakes";
 }
 
 void Settings::about()

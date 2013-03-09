@@ -15,14 +15,17 @@ TEMPLATE = app
 SOURCES += main.cpp\
         settings.cpp \
     logindialog.cpp \
-    bullet.cpp
+    bullet.cpp \
+    prompt.cpp
 
 HEADERS  += settings.h \
     logindialog.h \
-    bullet.h
+    bullet.h \
+    prompt.h
 
 FORMS    += settings.ui \
-    logindialog.ui
+    logindialog.ui \
+    prompt.ui
 
 OTHER_FILES += \
     QBullet.png

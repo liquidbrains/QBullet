@@ -13,6 +13,7 @@ class QNetworkRequest;
 class QSettings;
 class QSystemTrayIcon;
 class QMenu;
+class Prompt;
 
 namespace Ui {
 class Settings;
@@ -37,7 +38,6 @@ public slots:
     virtual bool eventFilter(QObject *, QEvent *event);
     virtual void exit();
     virtual void closeEvent(QCloseEvent *);
-    virtual void shitfuckshit();
 private:
     Ui::Settings *ui;
     QSettings *settings;
@@ -51,6 +51,7 @@ private:
     QMenu *menu;
     QNetworkAccessManager *networkaccess;
     QObject *foo;
+    Prompt *prompt;
     bool showResult;
     bool exitClicked;
     void addAuthentication(QNetworkRequest &request);
@@ -66,6 +67,8 @@ protected slots:
     void sendList(QString deviceDescription, int id);
     void sendLink(QString deviceDescription, int id);
     void sendFile(QString deviceDescription, int id);
+    void sendText(int id, QString type, const QString title, QString contentType, const QString content);
+    void renameClipboardMenu();
     void handleError(int errorCode, QString serverMessage);
     void about();
 
