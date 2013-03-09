@@ -437,12 +437,49 @@ void Settings::sendAddress(QString deviceDescription, int id)
 
 void Settings::sendList(QString deviceDescription, int id)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
+    show();
     if (prompt->showPrompt("Send list to "+deviceDescription,"title") != QDialog::Accepted)
     {
         return;
     }
 
-    sendText(id,"list",prompt->getText(),"items",prompt->getText());
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    QHttpPart devicePart;
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setBody(QString::number(id).toLatin1());
+    multiPart->append(devicePart);
+
+    QHttpPart typePart;
+    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+    typePart.setBody("list");
+    multiPart->append(typePart);
+
+    QHttpPart titlePart;
+    titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"title\""));
+
+    titlePart.setBody(prompt->getTitle().toUtf8());
+    multiPart->append(titlePart);
+
+    QStringList list(prompt->getText().split(QRegExp("[\r\n]"),QString::SkipEmptyParts));
+
+    for (QStringList::const_iterator i = list.begin(); i != list.end(); ++i)
+    {
+        QHttpPart contentPart;
+        contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"items["+QString::number(i-list.begin())+"]\""));
+        QString item(*i);
+        contentPart.setBody(item.toUtf8());
+        multiPart->append(contentPart);
+    }
+
+    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    addAuthentication(request);
+
+    QNetworkReply *reply = networkaccess->post(request, multiPart);
+    multiPart->setParent(reply); // delete the multiPart with the reply
+
+    qDebug() << "Out " << QString(__FUNCTION__);
 }
 
 void Settings::sendLink(QString deviceDescription, int id)
