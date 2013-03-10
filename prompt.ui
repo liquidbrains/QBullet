@@ -19,20 +19,37 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLineEdit" name="txtTitle">
-     <property name="toolTip">
-      <string>blargh</string>
-     </property>
-     <property name="statusTip">
-      <string>blargh</string>
-     </property>
-     <property name="placeholderText">
-      <string>Some Text</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QLabel" name="lblTitle">
+       <property name="styleSheet">
+        <string notr="true">text-transform:capitalize;</string>
+       </property>
+       <property name="text">
+        <string>TextLabel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="txtTitle">
+       <property name="toolTip">
+        <string>blargh</string>
+       </property>
+       <property name="statusTip">
+        <string>blargh</string>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="QPlainTextEdit" name="txtTextBlock">
+     <property name="tabChangesFocus">
+      <bool>true</bool>
+     </property>
      <property name="documentTitle">
       <string>Document Title?</string>
      </property>

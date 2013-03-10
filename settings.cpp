@@ -67,9 +67,12 @@ Settings::Settings(QWidget *parent) :
     menu->addAction("&Update Devices",this,SLOT(getDevices()));
     menu->addSeparator();
     menu->addAction("&Exit",this,SLOT(exit()));
-    menu->addAction("&About",this,SLOT(about()));
-    //menu->addAction("&About Qt",this,SLOT(aboutQt()));
 
+    QAction *tmpAction;
+    ui->toolButton->addAction(tmpAction = new QAction("About QBullet",ui->toolButton));
+    connect(tmpAction,SIGNAL(triggered()),this,SLOT(about()));
+    ui->toolButton->addAction(tmpAction = new QAction("About QT",ui->toolButton));
+    connect(tmpAction,SIGNAL(triggered()),qApp,SLOT(aboutQt()));
     tray->setContextMenu(menu);
 }
 
@@ -98,7 +101,7 @@ void Settings::replyReceived(QNetworkReply* reply)
 
 void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
 {
-    LoginDialog * login = new LoginDialog((QWidget *)QObject::parent());
+    LoginDialog * login = new LoginDialog(0);
 
     login->setMessage(proxy.hostName());
 
@@ -254,6 +257,7 @@ void Settings::handleResponse(QByteArray &response)
         h = new QTableWidgetItem("Android Version");
         ui->tblDevicesList->setHorizontalHeaderItem(4,h);
         ui->tblDevicesList->doItemsLayout();
+        ui->tblDevicesList->resizeColumnsToContents();
     }else
     {
         processResponse(jsoo);
@@ -305,7 +309,10 @@ void Settings::renameClipboardMenu()
     } else if (mimeData->hasHtml())
     {
         clipboardMenu->setTitle("Clipboard note to");
-    } else if (mimeData->hasUrls())
+    } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
+    {
+        clipboardMenu->setTitle("Clipboard address to");
+    }else if (mimeData->hasUrls())
     {
         clipboardMenu->setTitle("Clipboard link to");
     }else if (mimeData->hasText())
@@ -529,7 +536,7 @@ void Settings::sendFile(QString deviceDescription, int id)
 {
     try{
         show();
-        QString fileName(QFileDialog::getOpenFileName(NULL,"Select file to be sent to: "+deviceDescription));
+        QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
 
         if (fileName.isEmpty())
         {
@@ -589,23 +596,23 @@ void Settings::sendFile(QString deviceDescription, int id)
     return;
 }
 
-void Settings::sendClipboard(QString /*deviceDescription*/, int /*id*/)
+void Settings::sendClipboard(QString , int id)
 {
     const QClipboard *clipboard = QApplication::clipboard();
     const QMimeData *mimeData = clipboard->mimeData();
 
-
-    clipboardMenu->setEnabled(true);
-
-    if (mimeData->hasImage()) {
-        clipboardMenu->setTitle("Clipboard image to");
-    } else if (mimeData->hasHtml()) {
-        clipboardMenu->setTitle("Clipboard note to");
-    } else if (mimeData->hasText()) {
-        clipboardMenu->setTitle("Clipboard note to");
-    } else if (mimeData->hasUrls())
+    if (mimeData->hasImage())
     {
-        clipboardMenu->setTitle("Clipboard link to");
+        //QVariant image
+    } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
+    {
+        sendText(id,"address","Address from Clipboard","address",mimeData->text());
+    }else if (mimeData->hasUrls())
+    {
+        sendText(id,"link","Link from clipboard","url",mimeData->text());
+    }else if (mimeData->hasText())
+    {
+        sendText(id,"note","Text from clipboard","body",mimeData->text());
     }
 }
 
@@ -646,6 +653,5 @@ void Settings::handleError(int errorCode, QString serverMessage)
 
 void Settings::about()
 {
-    qApp->aboutQt();
-    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\rVersion: "+qApp->applicationVersion());
+    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion());
 }

@@ -84,7 +84,7 @@
            <set>QAbstractItemView::NoEditTriggers</set>
           </property>
           <property name="selectionMode">
-           <enum>QAbstractItemView::SingleSelection</enum>
+           <enum>QAbstractItemView::NoSelection</enum>
           </property>
           <attribute name="horizontalHeaderStretchLastSection">
            <bool>true</bool>
@@ -255,8 +255,7 @@
      <item>
       <widget class="QToolButton" name="toolButton">
        <property name="text">
-        <string>About QBullet
-About Qt</string>
+        <string>&amp;About</string>
        </property>
        <property name="popupMode">
         <enum>QToolButton::MenuButtonPopup</enum>

@@ -17,7 +17,8 @@ int Prompt::showPrompt(QString windowTitle, QString name, QString text)
     this->setWindowTitle(windowTitle);
     ui->txtTextBlock->setPlainText(text);
     ui->txtTitle->clear();
-    ui->txtTitle->setPlaceholderText(name);
+    ui->lblTitle->setText(name);
+    ui->txtTitle->setFocus();
 
     return this->exec();
 }
