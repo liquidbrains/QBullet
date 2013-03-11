@@ -28,7 +28,8 @@ FORMS    += settings.ui \
     prompt.ui
 
 OTHER_FILES += \
-    QBullet.png
+    QBullet.png \
+    README.txt
 
 RESOURCES += \
     resources.qrc

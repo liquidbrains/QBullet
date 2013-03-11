@@ -37,13 +37,12 @@ Settings::Settings(QWidget *parent) :
     menu(new QMenu(parent)),
     networkaccess(new QNetworkAccessManager(parent)),
     foo(NULL),
-    showResult(true),
-    exitClicked(false),
-    prompt(new Prompt(this))
+    prompt(new Prompt(this)),
+    showResult(false),
+    exitClicked(false)
 {
     ui->setupUi(this);
 
-    //connect(tray,SIGNAL(activated(QSystemTrayIcon::ActivationReason)),menu,SLOT(internalDelayedPopup()));
     connect(networkaccess, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyReceived(QNetworkReply*)));
     connect(networkaccess, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)), this,SLOT(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)));
     connect(ui->cbSystemProxy,SIGNAL(stateChanged(int)),this,SLOT(systemProxyChecked(int)));
@@ -101,6 +100,8 @@ void Settings::replyReceived(QNetworkReply* reply)
 
 void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
 {
+    show();
+
     LoginDialog * login = new LoginDialog(0);
 
     login->setMessage(proxy.hostName());
@@ -246,6 +247,9 @@ void Settings::handleResponse(QByteArray &response)
     {
         processDevices(jsoo["devices"]);
         processSharedDevices(jsoo["shared_devices"]);
+        if (showResult)
+            tray->showMessage("Device list updated","The device list has been updated.",QSystemTrayIcon::Information,5000);
+
         QTableWidgetItem *h = new QTableWidgetItem("ID");
         ui->tblDevicesList->setHorizontalHeaderItem(0,h);
         h = new QTableWidgetItem("Owner");
@@ -424,21 +428,27 @@ void Settings::processResponse(const QJsonObject &response)
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
+    show();
+
     if (prompt->showPrompt("Send note to "+deviceDescription,"title") != QDialog::Accepted)
     {
         return;
     }
 
+    hide();
     sendText(id,"note",prompt->getText(),"body",prompt->getText());
 }
 
 void Settings::sendAddress(QString deviceDescription, int id)
 {
+    show();
+
     if (prompt->showPrompt("Send address to "+deviceDescription,"name") != QDialog::Accepted)
     {
         return;
     }
 
+    hide();
     sendText(id,"address",prompt->getText(),"address",prompt->getText());
 }
 
@@ -451,6 +461,7 @@ void Settings::sendList(QString deviceDescription, int id)
         return;
     }
 
+    hide();
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
@@ -491,11 +502,14 @@ void Settings::sendList(QString deviceDescription, int id)
 
 void Settings::sendLink(QString deviceDescription, int id)
 {
+    show();
+
     if (prompt->showPrompt("Send link to "+deviceDescription,"title") != QDialog::Accepted)
     {
         return;
     }
 
+    hide();
     sendText(id,"link",prompt->getText(),"url",prompt->getText());
 }
 
@@ -554,6 +568,8 @@ void Settings::sendFile(QString deviceDescription, int id)
             return;
         }
 
+        hide();
+
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
         QHttpPart devicePart;
@@ -603,6 +619,7 @@ void Settings::sendClipboard(QString , int id)
 
     if (mimeData->hasImage())
     {
+        tray->showMessage("Unimplemented","Sending an image from clipboard has not been implemented yet.");
         //QVariant image
     } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
     {
@@ -626,7 +643,6 @@ void Settings::handleError(int errorCode, QString serverMessage)
         error = "Missing Parameter.  Please check for an updated version of this software.";
         break;
     case 401:
-        show();
         ui->txtAPIKey->selectAll();
         ui->txtAPIKey->setFocus();
         error = "No Valid API key provided";
@@ -646,6 +662,7 @@ void Settings::handleError(int errorCode, QString serverMessage)
     default:
         error = "Something went wrong on PushBullet's side.  Error "+QString::number(errorCode)+": \n"+serverMessage;
     }
+    show();
 
     QMessageBox::critical(this,"An error occurred",error);
 
