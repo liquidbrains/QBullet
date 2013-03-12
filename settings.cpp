@@ -370,7 +370,7 @@ void Settings::processDevices(const QJsonValue &response)
         listMenu->addAction(deviceDescription,bullet,SLOT(sendList()));
         fileMenu->addAction(deviceDescription,bullet,SLOT(sendFile()));
         linkMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
-        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
+        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendClipboard()));
     }
 }
 
@@ -415,7 +415,7 @@ void Settings::processSharedDevices(const QJsonValue &response)
         listMenu->addAction(deviceDescription,bullet,SLOT(sendList()));
         fileMenu->addAction(deviceDescription,bullet,SLOT(sendFile()));
         linkMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
-        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendLink()));
+        clipboardMenu->addAction(deviceDescription,bullet,SLOT(sendClipboard()));
     }
 }
 
