@@ -19,6 +19,8 @@ namespace Ui {
 class Settings;
 }
 
+#include <QMap>
+
 class Settings : public QDialog
 {
     Q_OBJECT
@@ -54,6 +56,7 @@ private:
     Prompt *prompt;
     bool showResult;
     bool exitClicked;
+    QMap<int,QString> devices;
     void addAuthentication(QNetworkRequest &request);
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);

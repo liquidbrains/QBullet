@@ -18,11 +18,13 @@
 #include <QHttpPart>
 #include <QJsonArray>
 #include <QMenu>
+#include <QBuffer>
 #include <QMimeDatabase>
 #include <QSystemTrayIcon>
 #include <QJsonDocument>
 #include <QClipboard>
 #include <QMimeData>
+#include <QMap>
 
 #include <bullet.h>
 #include <prompt.h>
@@ -39,7 +41,8 @@ Settings::Settings(QWidget *parent) :
     foo(NULL),
     prompt(new Prompt(this)),
     showResult(false),
-    exitClicked(false)
+    exitClicked(false),
+    devices(QMap<int,QString>())
 {
     ui->setupUi(this);
 
@@ -102,16 +105,53 @@ void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthe
 {
     show();
 
-    LoginDialog * login = new LoginDialog(0);
+    LoginDialog * login = new LoginDialog(this);
 
-    login->setMessage(proxy.hostName());
+    QString proxyType;
+    switch (proxy.type())
+    {
+    case QNetworkProxy::HttpProxy:
+        proxyType = "HTTP";
+        break;
+    case QNetworkProxy::DefaultProxy:
+        proxyType = "Default";
+        break;
+    case QNetworkProxy::Socks5Proxy:
+        proxyType = "Socks 5";
+        break;
+    case QNetworkProxy::HttpCachingProxy:
+        proxyType = "HTTP Caching";
+        break;
+    case QNetworkProxy::FtpCachingProxy:
+        proxyType = "FTP Caching";
+        break;
+    default:
+        proxyType = "Unknown";
+    }
+
+    login->setMessage(proxy.hostName()+":"+QString::number(proxy.port()),proxyType);
+    login->setUser(settings->value("proxyUser","").toString());
+    login->setPassword(settings->value("proxyPassword","").toString());
+    login->setRemember(settings->value("proxyRememberPassword",false).toBool());
 
     if (login->exec() == LoginDialog::Accepted)
     {
         authenticator->setPassword(login->password());
 
         authenticator->setUser(login->user());
+        settings->setValue("proxyUser",login->user());
+
+        if (login->remember())
+        {
+            settings->setValue("proxyPassword",login->password());
+            settings->setValue("proxyRememberPassword",true);
+        }
+        else
+        {
+            settings->setValue("proxyPassword","");
+        }
     }
+
     /**
      * TODO Define this
      */
@@ -245,6 +285,7 @@ void Settings::handleResponse(QByteArray &response)
 
     if (jsoo.contains("devices"))
     {
+        devices.clear();
         processDevices(jsoo["devices"]);
         processSharedDevices(jsoo["shared_devices"]);
         if (showResult)
@@ -357,6 +398,8 @@ void Settings::processDevices(const QJsonValue &response)
         ui->tblDevicesList->setItem(i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
         QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
+        this->devices.insert((int)device["id"].toDouble(),deviceDescription);
+
         Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
         connect(bullet,SIGNAL(sendNote(QString,int)),this,SLOT(sendNote(QString,int)));
@@ -401,6 +444,7 @@ void Settings::processSharedDevices(const QJsonValue &response)
         ui->tblDevicesList->setItem(starting_row+i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
         QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
+        this->devices.insert((int)device["id"].toDouble(),deviceDescription);
 
         Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
@@ -424,7 +468,17 @@ void Settings::processResponse(const QJsonObject &response)
     if (response["created"].isNull())
         return;
 
-    tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to device "+QString::number(response["device_id"].toDouble()));
+    QString description;
+    if (devices.contains((int)response["device_id"].toDouble()))
+    {
+        description = devices[(int)response["device_id"].toDouble()];
+    }
+    else
+    {
+        description = "Unknown device "+QString::number(response["device_id"].toDouble());
+    }
+
+    tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to "+description);
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
@@ -616,7 +670,44 @@ void Settings::sendClipboard(QString , int id)
 
     if (mimeData->hasImage())
     {
-        tray->showMessage("Unimplemented","Sending an image from clipboard has not been implemented yet.");
+        QImage image = qvariant_cast<QImage>(mimeData->imageData());
+
+        QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+        QHttpPart devicePart;
+        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+        devicePart.setBody(QString::number(id).toLatin1());
+
+        QHttpPart typePart;
+        typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+        typePart.setBody("file");
+
+        QHttpPart filePart;
+        QMimeDatabase mdb;
+        QString fileNamePart("Clipboard Image.png");
+
+        filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileNamePart).name()));
+        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
+
+        QByteArray *ba = new QByteArray();
+        QBuffer *buffer = new QBuffer(ba);
+        buffer->open(QIODevice::ReadWrite);
+        image.save(buffer, "PNG");
+        buffer->reset();
+
+        filePart.setBodyDevice(buffer);
+        buffer->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+
+        multiPart->append(devicePart);
+        multiPart->append(typePart);
+        multiPart->append(filePart);
+
+        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+        addAuthentication(request);
+
+        QNetworkReply *reply = networkaccess->post(request, multiPart);
+        multiPart->setParent(reply); // delete the multiPart with the reply
+
         //QVariant image
     } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
     {
