@@ -430,34 +430,40 @@ void Settings::sendNote(QString deviceDescription, int id)
 {
     show();
 
-    if (prompt->showPrompt("Send note to "+deviceDescription,"title") != QDialog::Accepted)
+    if (prompt->showPrompt("Send note to "+deviceDescription,"Title") != QDialog::Accepted)
     {
+        hide();
+
         return;
     }
 
     hide();
-    sendText(id,"note",prompt->getText(),"body",prompt->getText());
+    sendText(id,"note",prompt->getTitle(),"body",prompt->getText());
 }
 
 void Settings::sendAddress(QString deviceDescription, int id)
 {
     show();
 
-    if (prompt->showPrompt("Send address to "+deviceDescription,"name") != QDialog::Accepted)
+    if (prompt->showPrompt("Send address to "+deviceDescription,"Name") != QDialog::Accepted)
     {
+        hide();
+
         return;
     }
 
     hide();
-    sendText(id,"address",prompt->getText(),"address",prompt->getText());
+    sendText(id,"address",prompt->getTitle(),"address",prompt->getText());
 }
 
 void Settings::sendList(QString deviceDescription, int id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
     show();
-    if (prompt->showPrompt("Send list to "+deviceDescription,"title") != QDialog::Accepted)
+    if (prompt->showPrompt("Send list to "+deviceDescription,"Title") != QDialog::Accepted)
     {
+        hide();
+
         return;
     }
 
@@ -504,13 +510,15 @@ void Settings::sendLink(QString deviceDescription, int id)
 {
     show();
 
-    if (prompt->showPrompt("Send link to "+deviceDescription,"title") != QDialog::Accepted)
+    if (prompt->showPrompt("Send link to "+deviceDescription,"Title") != QDialog::Accepted)
     {
+        hide();
+
         return;
     }
 
     hide();
-    sendText(id,"link",prompt->getText(),"url",prompt->getText());
+    sendText(id,"link",prompt->getTitle(),"url",prompt->getText());
 }
 
 void Settings::sendText(int id, QString type, const QString title, QString contentType, const QString content)
@@ -548,68 +556,57 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
 
 void Settings::sendFile(QString deviceDescription, int id)
 {
-    try{
-        show();
-        QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
+    show();
+    QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
 
-        if (fileName.isEmpty())
-        {
-            tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
-            hide();
-            return;
-        }
-
-        QFile *file = new QFile(fileName);
-        if (file->size() > 10*1024*1024)
-        {
-            tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
-            delete file;
-            hide();
-            return;
-        }
-
-        hide();
-
-        QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-        QHttpPart devicePart;
-        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-        devicePart.setBody(QString::number(id).toLatin1());
-
-        QHttpPart typePart;
-        typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-        typePart.setBody("file");
-
-        QHttpPart filePart;
-        QMimeDatabase mdb;
-        QString fileNamePart(QFileInfo(fileName).fileName());
-        qDebug() << "Mime type: "<< mdb.mimeTypeForFile(fileName).name();
-        filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileName).name()));
-        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
-
-        file->open(QIODevice::ReadOnly);
-        filePart.setBodyDevice(file);
-        file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
-
-        multiPart->append(devicePart);
-        multiPart->append(typePart);
-        multiPart->append(filePart);
-
-        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
-        addAuthentication(request);
-
-        QNetworkReply *reply = networkaccess->post(request, multiPart);
-        multiPart->setParent(reply); // delete the multiPart with the reply
-        hide();
-    }catch (std::exception ex)
+    if (fileName.isEmpty())
     {
-        qDebug() << ex.what();
+        tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
+        hide();
+        return;
     }
-    catch (...)
+
+    QFile *file = new QFile(fileName);
+    if (file->size() > 10*1024*1024)
     {
-        std::cerr << "well fuck."<<std::endl;
+        tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
+        delete file;
+        hide();
+        return;
     }
-    return;
+
+    hide();
+
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    QHttpPart devicePart;
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setBody(QString::number(id).toLatin1());
+
+    QHttpPart typePart;
+    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
+    typePart.setBody("file");
+
+    QHttpPart filePart;
+    QMimeDatabase mdb;
+    QString fileNamePart(QFileInfo(fileName).fileName());
+    qDebug() << "Mime type: "<< mdb.mimeTypeForFile(fileName).name();
+    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileName).name()));
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
+
+    file->open(QIODevice::ReadOnly);
+    filePart.setBodyDevice(file);
+    file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+
+    multiPart->append(devicePart);
+    multiPart->append(typePart);
+    multiPart->append(filePart);
+
+    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    addAuthentication(request);
+
+    QNetworkReply *reply = networkaccess->post(request, multiPart);
+    multiPart->setParent(reply); // delete the multiPart with the reply
 }
 
 void Settings::sendClipboard(QString , int id)
@@ -651,7 +648,6 @@ void Settings::handleError(int errorCode, QString serverMessage)
         error = "Request failed.  Please check your device and try again.";
         break;
     case 403:
-        show();
         ui->txtAPIKey->selectAll();
         ui->txtAPIKey->setFocus();
         error = "Your API key is not valid for this request or to this device.";
