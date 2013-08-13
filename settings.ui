@@ -141,77 +141,61 @@
      <property name="title">
       <string>Proxy</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0">
-       <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="0" rowspan="3">
-         <layout class="QFormLayout" name="formLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>Type:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="cmbProxyType">
-            <item>
-             <property name="text">
-              <string>No Proxy</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Default</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Http</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Socks 5</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Http Caching</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>Server:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLineEdit" name="txtProxyServer"/>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_2">
-            <property name="text">
-             <string>User:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QLineEdit" name="txtProxyUsername"/>
-          </item>
-         </layout>
+     <layout class="QHBoxLayout" name="horizontalLayout_6">
+      <item>
+       <layout class="QFormLayout" name="formLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Type:</string>
+          </property>
+         </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QCheckBox" name="cbSystemProxy">
+         <widget class="QComboBox" name="cmbProxyType"/>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label">
           <property name="text">
-           <string>Use &amp;System Proxy</string>
+           <string>Server:</string>
           </property>
          </widget>
         </item>
         <item row="1" column="1">
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLineEdit" name="txtProxyServer"/>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sbPort">
+            <property name="minimumSize">
+             <size>
+              <width>70</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximum">
+             <number>99999</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>User:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="txtProxyUsername"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
          <spacer name="verticalSpacer">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
@@ -224,7 +208,7 @@
           </property>
          </spacer>
         </item>
-        <item row="2" column="1">
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <item>
            <widget class="QLabel" name="label_3">

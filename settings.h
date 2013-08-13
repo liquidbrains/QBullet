@@ -32,7 +32,7 @@ public slots:
     virtual void accept();
     virtual void reject();
     virtual void show();
-    virtual void systemProxyChecked(int);
+    virtual void proxyTypeChanged(const QString &type);
     virtual void getDevices();
     virtual void executeTest();
     virtual void handleResponse(QByteArray &response);
@@ -61,6 +61,7 @@ private:
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);
     void processResponse(const QJsonObject &);
+    bool proxyAuthenticationSupplied;
 protected slots:
     void replyReceived(QNetworkReply* reply);
     void proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator );

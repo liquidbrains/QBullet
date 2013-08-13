@@ -34,21 +34,22 @@
 Settings::Settings(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Settings),
-    settings(new QSettings(__FILE__,"QBullet",parent)),
+    settings(new QSettings(__FILE__,"QBullet",this)),
     tray(new QSystemTrayIcon()),
-    menu(new QMenu(parent)),
-    networkaccess(new QNetworkAccessManager(parent)),
+    menu(new QMenu(this)),
+    networkaccess(new QNetworkAccessManager(this)),
     foo(NULL),
     prompt(new Prompt(this)),
     showResult(false),
     exitClicked(false),
-    devices(QMap<int,QString>())
+    devices(QMap<int,QString>()),
+    proxyAuthenticationSupplied(false)
 {
     ui->setupUi(this);
 
     connect(networkaccess, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyReceived(QNetworkReply*)));
     connect(networkaccess, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)), this,SLOT(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)));
-    connect(ui->cbSystemProxy,SIGNAL(stateChanged(int)),this,SLOT(systemProxyChecked(int)));
+    connect(ui->cmbProxyType,SIGNAL(currentIndexChanged(QString)),this,SLOT(proxyTypeChanged(QString)));
     connect(ui->btnTest,SIGNAL(clicked()),this,SLOT(executeTest()));
 
     tray->setIcon(QIcon(":icons/QBullet.png"));
@@ -76,6 +77,14 @@ Settings::Settings(QWidget *parent) :
     ui->toolButton->addAction(tmpAction = new QAction("About QT",ui->toolButton));
     connect(tmpAction,SIGNAL(triggered()),qApp,SLOT(aboutQt()));
     tray->setContextMenu(menu);
+
+    ui->cmbProxyType->addItem("System Proxy",-1);
+    ui->cmbProxyType->addItem("Default",QNetworkProxy::DefaultProxy);
+    //ui->cmbProxyType->addItem("FTP Caching",QNetworkProxy::FtpCachingProxy);
+    ui->cmbProxyType->addItem("HTTP",QNetworkProxy::HttpProxy);
+    ui->cmbProxyType->addItem("None",QNetworkProxy::NoProxy);
+    ui->cmbProxyType->addItem("HTTP Caching",QNetworkProxy::HttpCachingProxy);
+    ui->cmbProxyType->addItem("Socks 5",QNetworkProxy::Socks5Proxy);
 }
 
 Settings::~Settings()
@@ -103,7 +112,20 @@ void Settings::replyReceived(QNetworkReply* reply)
 
 void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
 {
+    if (proxyAuthenticationSupplied == false &&
+            settings->value("proxyRememberPassword",false).toBool() &&
+            settings->value("proxyUser","").toString() != "")
+    {
+        proxyAuthenticationSupplied = true;
+
+        authenticator->setUser(settings->value("proxyUser","").toString());
+        authenticator->setPassword(settings->value("proxyPassword","").toString());
+        return;
+    }
+
+#ifdef WIN32
     show();
+#endif
 
     LoginDialog * login = new LoginDialog(this);
 
@@ -130,21 +152,20 @@ void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthe
     }
 
     login->setMessage(proxy.hostName()+":"+QString::number(proxy.port()),proxyType);
-    login->setUser(settings->value("proxyUser","").toString());
-    login->setPassword(settings->value("proxyPassword","").toString());
+    login->setUser(proxy.user());
+    login->setPassword(proxy.password());
     login->setRemember(settings->value("proxyRememberPassword",false).toBool());
 
     if (login->exec() == LoginDialog::Accepted)
     {
         authenticator->setPassword(login->password());
-
         authenticator->setUser(login->user());
+        settings->setValue("proxyRememberPassword",login->remember());
         settings->setValue("proxyUser",login->user());
 
         if (login->remember())
         {
             settings->setValue("proxyPassword",login->password());
-            settings->setValue("proxyRememberPassword",true);
         }
         else
         {
@@ -160,13 +181,28 @@ void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthe
 
 void Settings::accept()
 {
+    if (ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt() != -1 &&
+            ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt() != QNetworkProxy::NoProxy)
+    {
+        if (ui->txtProxyServer->text() == "" || ui->sbPort->value() <= 0)
+        {
+#ifdef WIN32
+            show();
+#endif
+            QMessageBox::critical(this,"Invalid Proxy URL supplied!","Please supply a host name and port.\nThe default is 8080 or 3128.",QMessageBox::Ok);
+
+        }
+    }
+
+
     settings->setValue("firststart",false);
     settings->setValue("apiKey",ui->txtAPIKey->text());
-    settings->setValue("systemProxy",ui->cbSystemProxy->checkState()== Qt::Checked);
     settings->setValue("proxyUser",ui->txtProxyUsername->text());
     settings->setValue("proxyPassword",ui->txtProxyPassword->text());
     settings->setValue("proxyServer",ui->txtProxyServer->text());
-    settings->setValue("proxyServerType",ui->cmbProxyType->currentText());
+    settings->setValue("proxyServerPort",ui->sbPort->value());
+    settings->setValue("proxyServerType",ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt());
+
     /**
      * TODO: Save Screen values.
      * Set Proxy
@@ -175,41 +211,69 @@ void Settings::accept()
 
     hide();
     loadConfig();
+    getDevices();
 }
 
 void Settings::loadConfig()
 {
-    if (settings->value("systemProxy",true).toBool())
+    proxyAuthenticationSupplied = false;
+
+    if (settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt() == -1)
     {
         QNetworkProxyFactory::setUseSystemConfiguration(true);
-        QNetworkProxyQuery npq(QUrl("https://www.pushbullet.com/api/pushes"));
+        //QNetworkProxyQuery npq(QUrl("https://www.pushbullet.com/api/devices"));
+        QNetworkProxyQuery npq("www.pushbullet.com",443,"https",QNetworkProxyQuery::UrlRequest);
         QList<QNetworkProxy> proxies = QNetworkProxyFactory::systemProxyForQuery(npq);
+        QNetworkProxy newproxy(proxies[0]);
 
         if (proxies.count() > 0)
         {
-            networkaccess->setProxy(proxies[0]);
+            networkaccess->setProxy(newproxy);
         }
     }else
     {
-#ifdef BLARGH
         QNetworkProxyFactory::setUseSystemConfiguration(false);
-        QNetworkProxy *proxy = NULL;
-        switch ("proxyServerType",settings->value("proxyServerType","No Proxy"))
+        //QNetworkProxy *proxy = new QNetworkProxy();
+        //networkaccess->setProxy(proxy);
+
+        QNetworkProxy newproxy;
+
+
+        QNetworkProxy::ProxyType proxyType = QNetworkProxy::NoProxy;
+
+        switch (settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt())
         {
-        case "No Proxy":
+        case QNetworkProxy::NoProxy:
+        case QNetworkProxy::DefaultProxy:
+        case QNetworkProxy::HttpProxy:
+        case QNetworkProxy::Socks5Proxy:
+        case QNetworkProxy::HttpCachingProxy:
+            proxyType = (QNetworkProxy::ProxyType)settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt();
             break;
-        case "Default":
-        case "Http":
-        case "Socks 5":
-        case "Http Caching"
         default:
-            QMessageBox::warning(this,"Error","Invalid proxy type selected: "+settings->value("proxyServerType","No Proxy"));
+            show();
+            QMessageBox::warning(this,"Error","Invalid proxy type selected: "+settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt());
             break;
 
         }
 
-        (); /// Crap... Need to have a proxy type.
-#endif
+        if (settings->value("proxyServer","").toString() == "")
+        {
+            proxyType = QNetworkProxy::NoProxy;
+            settings->setValue("proxyServerType",proxyType);
+        }
+
+        newproxy.setType(proxyType);
+
+        if (proxyType != QNetworkProxy::NoProxy)
+        {
+            newproxy.setHostName(settings->value("proxyServer","").toString());
+            newproxy.setPort(settings->value("proxyServerPort",8080).toInt());
+            qDebug() << "proxyServer: "<<settings->value("proxyServer","").toString()<<endl;
+            qDebug() << "proxyServerPort: "<<settings->value("proxyServerPort",8080).toString()<<endl;
+        }
+
+        networkaccess->setProxy(newproxy);
     }
 }
 
@@ -231,24 +295,53 @@ void Settings::show()
      * TODO Populate GUI.
      */
 
-    ui->cbSystemProxy->setChecked(settings->value("systemProxy",true).toBool());
+    //ui->cbSystemProxy->setChecked(settings->value("proxyServerType",-1).toInt() == -1);
     ui->txtAPIKey->setText(settings->value("apiKey","").toString());
-    ui->txtProxyServer->setEnabled(settings->value("systemProxy",true).toBool() == false);
+    ui->txtProxyServer->setEnabled(settings->value("proxyServerType",-1).toInt() != -1);
     ui->txtProxyServer->setText(settings->value("proxyServer","").toString());
-    ui->txtProxyUsername->setEnabled(settings->value("systemProxy",true).toBool() == false);
+    ui->sbPort->setValue(settings->value("proxyServerPort",8080).toInt());
+    ui->sbPort->setEnabled(settings->value("proxyServerType",-1).toInt() != -1);
+
     ui->txtProxyUsername->setText(settings->value("proxyUser","").toString());
-    ui->txtProxyPassword->setEnabled(settings->value("systemProxy",true).toBool() == false);
     ui->txtProxyPassword->setText(settings->value("proxyPassword","").toString());
+
+
+    QString proxyType;
+    switch(settings->value("proxyServerType",-1).toInt())
+    {
+    case QNetworkProxy::HttpProxy:
+        proxyType = "HTTP";
+        break;
+    case QNetworkProxy::DefaultProxy:
+        proxyType = "Default";
+        break;
+    case QNetworkProxy::Socks5Proxy:
+        proxyType = "Socks 5";
+        break;
+    case QNetworkProxy::HttpCachingProxy:
+        proxyType = "HTTP Caching";
+        break;
+    case QNetworkProxy::FtpCachingProxy:
+        proxyType = "FTP Caching";
+        break;
+    case QNetworkProxy::NoProxy:
+        proxyType = "None";
+        break;
+    case -1:
+    default:
+        proxyType = "System Proxy";
+        break;
+    }
+
+    ui->cmbProxyType->setCurrentText(proxyType);
 
     QDialog::show();
 }
 
-void Settings::systemProxyChecked(int state)
+void Settings::proxyTypeChanged(const QString &type)
 {
-    ui->cmbProxyType->setEnabled(false);
-    ui->txtProxyServer->setEnabled(state == Qt::Unchecked);
-    ui->txtProxyUsername->setEnabled(state == Qt::Unchecked);
-    ui->txtProxyPassword->setEnabled(state == Qt::Unchecked);
+    ui->txtProxyServer->setEnabled(type != "System Proxy" && type != "None");
+    ui->sbPort->setEnabled(type != "System Proxy" && type != "None");
 }
 
 void Settings::executeTest()
@@ -347,24 +440,36 @@ void Settings::renameClipboardMenu()
 
 
     clipboardMenu->setEnabled(true);
+    QStringList formats = mimeData->formats();
 
+    for (int i = 0; i < formats.count(); ++i)
+    {
+        qDebug() << formats[i];
+    }
     if (mimeData->hasImage())
     {
         clipboardMenu->setTitle("Clipboard image to");
     } else if (mimeData->hasHtml())
     {
         clipboardMenu->setTitle("Clipboard note to");
-    } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
+    } else if (mimeData->hasUrls())
     {
-        clipboardMenu->setTitle("Clipboard address to");
-    }else if (mimeData->hasUrls())
-    {
-        clipboardMenu->setTitle("Clipboard link to");
+        if ((mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
+        {
+            clipboardMenu->setTitle("Clipboard address to");
+        }
+        else if (mimeData->text().startsWith("file://"))
+        {
+            clipboardMenu->setEnabled(false);
+            clipboardMenu->setTitle("Clipboard file to");
+        }
     }else if (mimeData->hasText())
     {
         clipboardMenu->setTitle("Clipboard note to");
     }
     else{
+
+
         clipboardMenu->setEnabled(false);
     }
 }
@@ -482,7 +587,9 @@ void Settings::processResponse(const QJsonObject &response)
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
+#ifdef WIN32
     show();
+#endif
 
     if (prompt->showPrompt("Send note to "+deviceDescription,"Title") != QDialog::Accepted)
     {
@@ -497,7 +604,9 @@ void Settings::sendNote(QString deviceDescription, int id)
 
 void Settings::sendAddress(QString deviceDescription, int id)
 {
+#ifdef WIN32
     show();
+#endif
 
     if (prompt->showPrompt("Send address to "+deviceDescription,"Name") != QDialog::Accepted)
     {
@@ -513,7 +622,11 @@ void Settings::sendAddress(QString deviceDescription, int id)
 void Settings::sendList(QString deviceDescription, int id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
+
+#ifdef WIN32
     show();
+#endif
+
     if (prompt->showPrompt("Send list to "+deviceDescription,"Title") != QDialog::Accepted)
     {
         hide();
@@ -562,7 +675,9 @@ void Settings::sendList(QString deviceDescription, int id)
 
 void Settings::sendLink(QString deviceDescription, int id)
 {
+#ifdef WIN32
     show();
+#endif
 
     if (prompt->showPrompt("Send link to "+deviceDescription,"Title") != QDialog::Accepted)
     {
@@ -610,7 +725,10 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
 
 void Settings::sendFile(QString deviceDescription, int id)
 {
+#ifdef WIN32
     show();
+#endif
+
     QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
 
     if (fileName.isEmpty())
@@ -731,6 +849,7 @@ void Settings::handleError(int errorCode, QString serverMessage)
         error = "Missing Parameter.  Please check for an updated version of this software.";
         break;
     case 401:
+        show();
         ui->txtAPIKey->selectAll();
         ui->txtAPIKey->setFocus();
         error = "No Valid API key provided";
@@ -739,6 +858,7 @@ void Settings::handleError(int errorCode, QString serverMessage)
         error = "Request failed.  Please check your device and try again.";
         break;
     case 403:
+        show();
         ui->txtAPIKey->selectAll();
         ui->txtAPIKey->setFocus();
         error = "Your API key is not valid for this request or to this device.";
@@ -749,7 +869,9 @@ void Settings::handleError(int errorCode, QString serverMessage)
     default:
         error = "Something went wrong on PushBullet's side.  Error "+QString::number(errorCode)+": \n"+serverMessage;
     }
+#ifdef WIN32
     show();
+#endif
 
     QMessageBox::critical(this,"An error occurred",error);
 
