@@ -4,6 +4,7 @@
 #define DELETE_IF_NOT_NULL(x) if (x != NULL){delete x;x = NULL;}
 
 #include <QDialog>
+#include <QSystemTrayIcon>
 
 class QNetworkAccessManager;
 class QNetworkProxy;
@@ -11,9 +12,10 @@ class QNetworkReply;
 class QAuthenticator;
 class QNetworkRequest;
 class QSettings;
-class QSystemTrayIcon;
+
 class QMenu;
 class Prompt;
+class QMimeData;
 
 namespace Ui {
 class Settings;
@@ -40,6 +42,7 @@ public slots:
     virtual bool eventFilter(QObject *, QEvent *event);
     virtual void exit();
     virtual void closeEvent(QCloseEvent *);
+    virtual void trayActivated(QSystemTrayIcon::ActivationReason);
 private:
     Ui::Settings *ui;
     QSettings *settings;
@@ -61,6 +64,7 @@ private:
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);
     void processResponse(const QJsonObject &);
+    const QString detectClipboardContents(const QMimeData &mimeData);
     bool proxyAuthenticationSupplied;
 protected slots:
     void replyReceived(QNetworkReply* reply);

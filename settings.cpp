@@ -77,6 +77,7 @@ Settings::Settings(QWidget *parent) :
     ui->toolButton->addAction(tmpAction = new QAction("About QT",ui->toolButton));
     connect(tmpAction,SIGNAL(triggered()),qApp,SLOT(aboutQt()));
     tray->setContextMenu(menu);
+    connect(tray,SIGNAL(activated(QSystemTrayIcon::ActivationReason)),this,SLOT(trayActivated(QSystemTrayIcon::ActivationReason)));
 
     ui->cmbProxyType->addItem("System Proxy",-1);
     ui->cmbProxyType->addItem("Default",QNetworkProxy::DefaultProxy);
@@ -110,6 +111,14 @@ void Settings::replyReceived(QNetworkReply* reply)
     qDebug() << "Out " << QString(__FUNCTION__);
 }
 
+void Settings::trayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick)
+    {
+        show();
+    }
+}
+
 void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
 {
     if (proxyAuthenticationSupplied == false &&
@@ -123,9 +132,6 @@ void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthe
         return;
     }
 
-#ifdef WIN32
-    show();
-#endif
 
     LoginDialog * login = new LoginDialog(this);
 
@@ -186,11 +192,8 @@ void Settings::accept()
     {
         if (ui->txtProxyServer->text() == "" || ui->sbPort->value() <= 0)
         {
-#ifdef WIN32
-            show();
-#endif
             QMessageBox::critical(this,"Invalid Proxy URL supplied!","Please supply a host name and port.\nThe default is 8080 or 3128.",QMessageBox::Ok);
-
+            return;
         }
     }
 
@@ -433,44 +436,58 @@ void Settings::closeEvent(QCloseEvent *event)
     }
 }
 
+const QString Settings::detectClipboardContents(const QMimeData &mimeData)
+{
+    if (mimeData.hasImage())
+    {
+        return "image";
+    } else if (mimeData.hasUrls())
+    {
+        if ((mimeData.text().startsWith("https://maps.google") || mimeData.text().startsWith("http://goo.gl/maps")))
+        {
+            return "address";
+        }
+        else if (mimeData.text().startsWith("file://"))
+        {
+            return "file";
+        }else if (mimeData.text().startsWith("http") || mimeData.text().startsWith("ftp") || mimeData.text().startsWith("email"))
+        {
+            return "link";
+        }else
+            return "note";
+    } else if (mimeData.hasHtml() || mimeData.hasText())
+    {
+        if (mimeData.text().startsWith("mailto"))
+            return "e-mail";
+
+        return "note";
+    }
+    else{
+        return "";
+    }
+}
+
 void Settings::renameClipboardMenu()
 {
     const QClipboard *clipboard = QApplication::clipboard();
     const QMimeData *mimeData = clipboard->mimeData();
 
 
-    clipboardMenu->setEnabled(true);
+    clipboardMenu->setEnabled(false);
     QStringList formats = mimeData->formats();
 
     for (int i = 0; i < formats.count(); ++i)
     {
         qDebug() << formats[i];
     }
-    if (mimeData->hasImage())
-    {
-        clipboardMenu->setTitle("Clipboard image to");
-    } else if (mimeData->hasHtml())
-    {
-        clipboardMenu->setTitle("Clipboard note to");
-    } else if (mimeData->hasUrls())
-    {
-        if ((mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
-        {
-            clipboardMenu->setTitle("Clipboard address to");
-        }
-        else if (mimeData->text().startsWith("file://"))
-        {
-            clipboardMenu->setEnabled(false);
-            clipboardMenu->setTitle("Clipboard file to");
-        }
-    }else if (mimeData->hasText())
-    {
-        clipboardMenu->setTitle("Clipboard note to");
-    }
-    else{
 
+    QString content(detectClipboardContents(*mimeData));
 
-        clipboardMenu->setEnabled(false);
+    if (!content.isEmpty()){
+        clipboardMenu->setTitle("Clipboard "+content+" to");
+
+        if(content != "file")
+            clipboardMenu->setEnabled(true);
     }
 }
 
@@ -587,35 +604,22 @@ void Settings::processResponse(const QJsonObject &response)
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
-#ifdef WIN32
-    show();
-#endif
-
     if (prompt->showPrompt("Send note to "+deviceDescription,"Title") != QDialog::Accepted)
     {
-        hide();
-
         return;
     }
 
-    hide();
     sendText(id,"note",prompt->getTitle(),"body",prompt->getText());
 }
 
 void Settings::sendAddress(QString deviceDescription, int id)
 {
-#ifdef WIN32
-    show();
-#endif
 
     if (prompt->showPrompt("Send address to "+deviceDescription,"Name") != QDialog::Accepted)
     {
-        hide();
-
         return;
     }
 
-    hide();
     sendText(id,"address",prompt->getTitle(),"address",prompt->getText());
 }
 
@@ -623,18 +627,11 @@ void Settings::sendList(QString deviceDescription, int id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
 
-#ifdef WIN32
-    show();
-#endif
-
     if (prompt->showPrompt("Send list to "+deviceDescription,"Title") != QDialog::Accepted)
     {
-        hide();
-
         return;
     }
 
-    hide();
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
@@ -675,18 +672,11 @@ void Settings::sendList(QString deviceDescription, int id)
 
 void Settings::sendLink(QString deviceDescription, int id)
 {
-#ifdef WIN32
-    show();
-#endif
-
     if (prompt->showPrompt("Send link to "+deviceDescription,"Title") != QDialog::Accepted)
     {
-        hide();
-
         return;
     }
 
-    hide();
     sendText(id,"link",prompt->getTitle(),"url",prompt->getText());
 }
 
@@ -725,10 +715,6 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
 
 void Settings::sendFile(QString deviceDescription, int id)
 {
-#ifdef WIN32
-    show();
-#endif
-
     QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
 
     if (fileName.isEmpty())
@@ -746,8 +732,6 @@ void Settings::sendFile(QString deviceDescription, int id)
         hide();
         return;
     }
-
-    hide();
 
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
@@ -786,7 +770,9 @@ void Settings::sendClipboard(QString , int id)
     const QClipboard *clipboard = QApplication::clipboard();
     const QMimeData *mimeData = clipboard->mimeData();
 
-    if (mimeData->hasImage())
+    QString content(detectClipboardContents(*mimeData));
+
+    if (content == "image")
     {
         QImage image = qvariant_cast<QImage>(mimeData->imageData());
 
@@ -827,15 +813,18 @@ void Settings::sendClipboard(QString , int id)
         multiPart->setParent(reply); // delete the multiPart with the reply
 
         //QVariant image
-    } else if (mimeData->hasUrls() && (mimeData->text().startsWith("https://maps.google") || mimeData->text().startsWith("http://goo.gl/maps")))
+    } else if (content == "address")
     {
         sendText(id,"address","Address from Clipboard","address",mimeData->text());
-    }else if (mimeData->hasUrls())
+    }else if (content == "link")
     {
         sendText(id,"link","Link from clipboard","url",mimeData->text());
-    }else if (mimeData->hasText())
+    }else if (content == "note")
     {
         sendText(id,"note","Text from clipboard","body",mimeData->text());
+    }else if (content == "e-mail")
+    {
+        sendText(id,"link","Email address from clipboard","url",mimeData->text().replace("mailto:","email://"));
     }
 }
 
@@ -869,9 +858,6 @@ void Settings::handleError(int errorCode, QString serverMessage)
     default:
         error = "Something went wrong on PushBullet's side.  Error "+QString::number(errorCode)+": \n"+serverMessage;
     }
-#ifdef WIN32
-    show();
-#endif
 
     QMessageBox::critical(this,"An error occurred",error);
 
@@ -879,5 +865,5 @@ void Settings::handleError(int errorCode, QString serverMessage)
 
 void Settings::about()
 {
-    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion());
+    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion()+"\r\nIcon from http://inkedicon.deviantart.com/art/Bullet-Game-Icon-322005720");
 }

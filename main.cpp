@@ -8,6 +8,7 @@ int main(int argc, char *argv[])
     a.setApplicationDisplayName("QBullet PushBullet client");
     a.setApplicationVersion("0.1");
     a.setOrganizationName("Wian Potgieter");
+    a.setQuitOnLastWindowClosed(false);
     Settings w;
     w.loadConfig();
     w.getDevices();
