@@ -236,13 +236,8 @@ void Settings::loadConfig()
     }else
     {
         QNetworkProxyFactory::setUseSystemConfiguration(false);
-        //QNetworkProxy *proxy = new QNetworkProxy();
-        //networkaccess->setProxy(proxy);
 
-        QNetworkProxy newproxy;
-
-
-        QNetworkProxy::ProxyType proxyType = QNetworkProxy::NoProxy;
+        QNetworkProxy::ProxyType proxyType;
 
         switch (settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt())
         {
@@ -256,27 +251,11 @@ void Settings::loadConfig()
         default:
             show();
             QMessageBox::warning(this,"Error","Invalid proxy type selected: "+settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt());
-            break;
+            return;
 
-        }
+        }        
 
-        if (settings->value("proxyServer","").toString() == "")
-        {
-            proxyType = QNetworkProxy::NoProxy;
-            settings->setValue("proxyServerType",proxyType);
-        }
-
-        newproxy.setType(proxyType);
-
-        if (proxyType != QNetworkProxy::NoProxy)
-        {
-            newproxy.setHostName(settings->value("proxyServer","").toString());
-            newproxy.setPort(settings->value("proxyServerPort",8080).toInt());
-            qDebug() << "proxyServer: "<<settings->value("proxyServer","").toString()<<endl;
-            qDebug() << "proxyServerPort: "<<settings->value("proxyServerPort",8080).toString()<<endl;
-        }
-
-        networkaccess->setProxy(newproxy);
+        networkaccess->setProxy(QNetworkProxy (proxyType,settings->value("proxyServer","").toString(),settings->value("proxyServerPort",8080).toInt()));
     }
 }
 
