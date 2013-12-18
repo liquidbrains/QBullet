@@ -10,8 +10,8 @@ int main(int argc, char *argv[])
     a.setOrganizationName("Wian Potgieter");
     a.setQuitOnLastWindowClosed(false);
     Settings w;
+    //w.show();
     w.loadConfig();
-    w.getDevices();
 
     return a.exec();
 }

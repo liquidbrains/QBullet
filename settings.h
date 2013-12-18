@@ -5,6 +5,7 @@
 
 #include <QDialog>
 #include <QSystemTrayIcon>
+#include <networkaccessmanager.h>
 
 class QNetworkAccessManager;
 class QNetworkProxy;
@@ -12,6 +13,8 @@ class QNetworkReply;
 class QAuthenticator;
 class QNetworkRequest;
 class QSettings;
+
+
 
 class QMenu;
 class Prompt;
@@ -54,7 +57,7 @@ private:
     QMenu *linkMenu;
     QSystemTrayIcon *tray;
     QMenu *menu;
-    QNetworkAccessManager *networkaccess;
+    NetworkAccessManager *networkaccess;
     QObject *foo;
     Prompt *prompt;
     bool showResult;
@@ -68,7 +71,6 @@ private:
     bool proxyAuthenticationSupplied;
 protected slots:
     void replyReceived(QNetworkReply* reply);
-    void proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator );
     void sendNote(QString deviceDescription, int id);
     void sendClipboard(QString deviceDescription, int id);
     void sendAddress(QString deviceDescription, int id);

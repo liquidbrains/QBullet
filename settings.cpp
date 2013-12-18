@@ -25,6 +25,7 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QMap>
+#include <qbulletproxyfactory.h>
 
 #include <bullet.h>
 #include <prompt.h>
@@ -34,10 +35,11 @@
 Settings::Settings(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::Settings),
-    settings(new QSettings(__FILE__,"QBullet",this)),
+    //settings(new QSettings(__FILE__,"QBullet",this)),
+    settings(new QSettings(QCoreApplication::organizationName(),QCoreApplication::applicationName(),this)),
     tray(new QSystemTrayIcon()),
     menu(new QMenu(this)),
-    networkaccess(new QNetworkAccessManager(this)),
+    networkaccess(new NetworkAccessManager(this)),
     foo(NULL),
     prompt(new Prompt(this)),
     showResult(false),
@@ -48,22 +50,25 @@ Settings::Settings(QWidget *parent) :
     ui->setupUi(this);
 
     connect(networkaccess, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyReceived(QNetworkReply*)));
-    connect(networkaccess, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)), this,SLOT(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)));
+    //connect(networkaccess, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)), this,SLOT(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)));
     connect(ui->cmbProxyType,SIGNAL(currentIndexChanged(QString)),this,SLOT(proxyTypeChanged(QString)));
     connect(ui->btnTest,SIGNAL(clicked()),this,SLOT(executeTest()));
 
     tray->setIcon(QIcon(":icons/QBullet.png"));
     tray->show();
+    connect(tray,SIGNAL(messageClicked()),this,SLOT(show()));
+
     setWindowIcon(QIcon(":icons/QBullet.png"));
     QApplication::setWindowIcon(QIcon(":icons/QBullet.png"));
 
-    clipboardMenu = menu->addMenu("Clipboard to");
+    (clipboardMenu = menu->addMenu("Clipboard to"))->setEnabled(false);
     connect(menu,SIGNAL(aboutToShow()),this,SLOT(renameClipboardMenu()));
-    noteMenu = menu->addMenu("Note to");
-    addressMenu = menu->addMenu("Address to");
-    listMenu = menu->addMenu("List to");
-    fileMenu = menu->addMenu("File to");
-    linkMenu = menu->addMenu("Link to");
+    (noteMenu = menu->addMenu("Note to"))->setEnabled(false);
+
+    (addressMenu = menu->addMenu("Address to"))->setEnabled(false);
+    (listMenu = menu->addMenu("List to"))->setEnabled(false);
+    (fileMenu = menu->addMenu("File to"))->setEnabled(false);
+    (linkMenu = menu->addMenu("Link to"))->setEnabled(false);
 
     menu->addSeparator();
     menu->addAction("&Settings",this,SLOT(show()));
@@ -79,12 +84,10 @@ Settings::Settings(QWidget *parent) :
     tray->setContextMenu(menu);
     connect(tray,SIGNAL(activated(QSystemTrayIcon::ActivationReason)),this,SLOT(trayActivated(QSystemTrayIcon::ActivationReason)));
 
-    ui->cmbProxyType->addItem("System Proxy",-1);
-    ui->cmbProxyType->addItem("Default",QNetworkProxy::DefaultProxy);
-    //ui->cmbProxyType->addItem("FTP Caching",QNetworkProxy::FtpCachingProxy);
-    ui->cmbProxyType->addItem("HTTP",QNetworkProxy::HttpProxy);
     ui->cmbProxyType->addItem("None",QNetworkProxy::NoProxy);
-    ui->cmbProxyType->addItem("HTTP Caching",QNetworkProxy::HttpCachingProxy);
+    //ui->cmbProxyType->addItem("Default",QNetworkProxy::DefaultProxy);
+    ui->cmbProxyType->addItem("HTTP",QNetworkProxy::HttpProxy);
+    //ui->cmbProxyType->addItem("HTTP Caching",QNetworkProxy::HttpCachingProxy);
     ui->cmbProxyType->addItem("Socks 5",QNetworkProxy::Socks5Proxy);
 }
 
@@ -101,6 +104,7 @@ void Settings::replyReceived(QNetworkReply* reply)
     qDebug() << reply->error() << " " << reply->errorString();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
     {
+        qDebug() << "Reply data: "<<data;
         handleError(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),reply->errorString());
     }else
     {
@@ -113,80 +117,16 @@ void Settings::replyReceived(QNetworkReply* reply)
 
 void Settings::trayActivated(QSystemTrayIcon::ActivationReason reason)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (reason == QSystemTrayIcon::DoubleClick)
     {
         show();
     }
 }
 
-void Settings::proxyAuthenticationRequired ( const QNetworkProxy & proxy, QAuthenticator * authenticator )
-{
-    if (proxyAuthenticationSupplied == false &&
-            settings->value("proxyRememberPassword",false).toBool() &&
-            settings->value("proxyUser","").toString() != "")
-    {
-        proxyAuthenticationSupplied = true;
-
-        authenticator->setUser(settings->value("proxyUser","").toString());
-        authenticator->setPassword(settings->value("proxyPassword","").toString());
-        return;
-    }
-
-
-    LoginDialog * login = new LoginDialog(this);
-
-    QString proxyType;
-    switch (proxy.type())
-    {
-    case QNetworkProxy::HttpProxy:
-        proxyType = "HTTP";
-        break;
-    case QNetworkProxy::DefaultProxy:
-        proxyType = "Default";
-        break;
-    case QNetworkProxy::Socks5Proxy:
-        proxyType = "Socks 5";
-        break;
-    case QNetworkProxy::HttpCachingProxy:
-        proxyType = "HTTP Caching";
-        break;
-    case QNetworkProxy::FtpCachingProxy:
-        proxyType = "FTP Caching";
-        break;
-    default:
-        proxyType = "Unknown";
-    }
-
-    login->setMessage(proxy.hostName()+":"+QString::number(proxy.port()),proxyType);
-    login->setUser(proxy.user());
-    login->setPassword(proxy.password());
-    login->setRemember(settings->value("proxyRememberPassword",false).toBool());
-
-    if (login->exec() == LoginDialog::Accepted)
-    {
-        authenticator->setPassword(login->password());
-        authenticator->setUser(login->user());
-        settings->setValue("proxyRememberPassword",login->remember());
-        settings->setValue("proxyUser",login->user());
-
-        if (login->remember())
-        {
-            settings->setValue("proxyPassword",login->password());
-        }
-        else
-        {
-            settings->setValue("proxyPassword","");
-        }
-    }
-
-    /**
-     * TODO Define this
-     */
-    DELETE_IF_NOT_NULL(login);
-}
-
 void Settings::accept()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt() != -1 &&
             ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt() != QNetworkProxy::NoProxy)
     {
@@ -200,11 +140,13 @@ void Settings::accept()
 
     settings->setValue("firststart",false);
     settings->setValue("apiKey",ui->txtAPIKey->text());
-    settings->setValue("proxyUser",ui->txtProxyUsername->text());
-    settings->setValue("proxyPassword",ui->txtProxyPassword->text());
-    settings->setValue("proxyServer",ui->txtProxyServer->text());
-    settings->setValue("proxyServerPort",ui->sbPort->value());
-    settings->setValue("proxyServerType",ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt());
+    settings->beginGroup("proxy");
+    settings->setValue("userName",ui->txtProxyUsername->text());
+    settings->setValue("password",ui->txtProxyPassword->text());
+    settings->setValue("hostName",ui->txtProxyServer->text());
+    settings->setValue("port",ui->sbPort->value());
+    settings->setValue("type",ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt());
+    settings->endGroup();
 
     /**
      * TODO: Save Screen values.
@@ -214,58 +156,32 @@ void Settings::accept()
 
     hide();
     loadConfig();
-    getDevices();
 }
 
 void Settings::loadConfig()
 {
-    proxyAuthenticationSupplied = false;
+    qDebug() << "In " << QString(__FUNCTION__);
 
-    if (settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt() == -1)
+    if (settings->value("firststart",false).toBool() == false && settings->value("apiKey","").toString()!= "")
     {
-        QNetworkProxyFactory::setUseSystemConfiguration(true);
-        //QNetworkProxyQuery npq(QUrl("https://www.pushbullet.com/api/devices"));
-        QNetworkProxyQuery npq("www.pushbullet.com",443,"https",QNetworkProxyQuery::UrlRequest);
-        QList<QNetworkProxy> proxies = QNetworkProxyFactory::systemProxyForQuery(npq);
-        QNetworkProxy newproxy(proxies[0]);
-
-        if (proxies.count() > 0)
-        {
-            networkaccess->setProxy(newproxy);
-        }
+        networkaccess->loadSettings();
+        getDevices();
     }else
     {
-        QNetworkProxyFactory::setUseSystemConfiguration(false);
-
-        QNetworkProxy::ProxyType proxyType;
-
-        switch (settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt())
-        {
-        case QNetworkProxy::NoProxy:
-        case QNetworkProxy::DefaultProxy:
-        case QNetworkProxy::HttpProxy:
-        case QNetworkProxy::Socks5Proxy:
-        case QNetworkProxy::HttpCachingProxy:
-            proxyType = (QNetworkProxy::ProxyType)settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt();
-            break;
-        default:
-            show();
-            QMessageBox::warning(this,"Error","Invalid proxy type selected: "+settings->value("proxyServerType",(int)QNetworkProxy::NoProxy).toInt());
-            return;
-
-        }        
-
-        networkaccess->setProxy(QNetworkProxy (proxyType,settings->value("proxyServer","").toString(),settings->value("proxyServerPort",8080).toInt()));
+        show();
+        QMessageBox::information(this,"Welcome to QBulet","Welcome to QBullet.  Please provide your API Key that you can retrieve from your accounts page on PushBullet.com",QMessageBox::Ok);
     }
 }
 
 void Settings::reject()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     hide();
 }
 
 void Settings::exit()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     exitClicked = true;
     tray->setVisible(false);
     QApplication::exit();
@@ -273,23 +189,26 @@ void Settings::exit()
 
 void Settings::show()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     /**
      * TODO Populate GUI.
      */
 
-    //ui->cbSystemProxy->setChecked(settings->value("proxyServerType",-1).toInt() == -1);
     ui->txtAPIKey->setText(settings->value("apiKey","").toString());
-    ui->txtProxyServer->setEnabled(settings->value("proxyServerType",-1).toInt() != -1);
-    ui->txtProxyServer->setText(settings->value("proxyServer","").toString());
-    ui->sbPort->setValue(settings->value("proxyServerPort",8080).toInt());
-    ui->sbPort->setEnabled(settings->value("proxyServerType",-1).toInt() != -1);
 
-    ui->txtProxyUsername->setText(settings->value("proxyUser","").toString());
-    ui->txtProxyPassword->setText(settings->value("proxyPassword","").toString());
+    settings->beginGroup(QLatin1String("proxy"));
+    ui->txtProxyServer->setEnabled(settings->value("type",QNetworkProxy::NoProxy).toInt() != QNetworkProxy::NoProxy);
+    ui->txtProxyServer->setText(settings->value("hostName","").toString());
+    ui->sbPort->setValue(settings->value("port",8080).toInt());
+    ui->sbPort->setEnabled(settings->value("type",QNetworkProxy::NoProxy).toInt() != QNetworkProxy::NoProxy);
+
+    ui->txtProxyUsername->setText(settings->value("userName","").toString());
+    ui->txtProxyPassword->setText(settings->value("password","").toString());
+
 
 
     QString proxyType;
-    switch(settings->value("proxyServerType",-1).toInt())
+    switch(settings->value("type",QNetworkProxy::NoProxy).toInt())
     {
     case QNetworkProxy::HttpProxy:
         proxyType = "HTTP";
@@ -306,14 +225,12 @@ void Settings::show()
     case QNetworkProxy::FtpCachingProxy:
         proxyType = "FTP Caching";
         break;
-    case QNetworkProxy::NoProxy:
+    default:
         proxyType = "None";
         break;
-    case -1:
-    default:
-        proxyType = "System Proxy";
-        break;
     }
+
+    settings->endGroup();
 
     ui->cmbProxyType->setCurrentText(proxyType);
 
@@ -322,20 +239,24 @@ void Settings::show()
 
 void Settings::proxyTypeChanged(const QString &type)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     ui->txtProxyServer->setEnabled(type != "System Proxy" && type != "None");
     ui->sbPort->setEnabled(type != "System Proxy" && type != "None");
 }
 
 void Settings::executeTest()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     showResult = true;
     settings->setValue("apiKey",ui->txtAPIKey->text());
-    getDevices();
+
+    loadConfig();
 }
 
 void Settings::getDevices()
 {
-    QUrl url("https://www.pushbullet.com/api/devices");
+    qDebug() << "In " << QString(__FUNCTION__);
+    QUrl url("http://api.pushbullet.com/api/devices");
     QNetworkRequest qnr(url);
     addAuthentication(qnr);
     networkaccess->get(qnr);
@@ -343,9 +264,11 @@ void Settings::getDevices()
 
 void Settings::addAuthentication(QNetworkRequest &request)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     QString header = "Basic ";
     header+=(settings->value("apiKey","").toString()+":").toLatin1().toBase64();
     request.setRawHeader(QString("Authorization").toLatin1(),header.toLatin1());
+#define QT_DECRYPT_SSL_TRAFFIC
 }
 
 void Settings::handleResponse(QByteArray &response)
@@ -387,6 +310,7 @@ void Settings::handleResponse(QByteArray &response)
 
 bool Settings::eventFilter(QObject *, QEvent *event)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (event->type() == QEvent::Close)
     {
         if (exitClicked)
@@ -405,6 +329,7 @@ bool Settings::eventFilter(QObject *, QEvent *event)
 
 void Settings::closeEvent(QCloseEvent *event)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (exitClicked)
     {
         event->accept();
@@ -417,6 +342,7 @@ void Settings::closeEvent(QCloseEvent *event)
 
 const QString Settings::detectClipboardContents(const QMimeData &mimeData)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (mimeData.hasImage())
     {
         return "image";
@@ -448,6 +374,17 @@ const QString Settings::detectClipboardContents(const QMimeData &mimeData)
 
 void Settings::renameClipboardMenu()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
+
+    if (settings->value("apiKey","").toString() == "" || clipboardMenu->isEmpty())
+    {
+        showResult = false;
+        this->loadConfig();
+        //tray->contextMenu()->
+        return;
+    }
+
+
     const QClipboard *clipboard = QApplication::clipboard();
     const QMimeData *mimeData = clipboard->mimeData();
 
@@ -472,6 +409,15 @@ void Settings::renameClipboardMenu()
 
 void Settings::processDevices(const QJsonValue &response)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
+
+    clipboardMenu->setEnabled(false);
+    noteMenu->setEnabled(false);
+    addressMenu->setEnabled(false);
+    listMenu->setEnabled(false);
+    fileMenu->setEnabled(false);
+    linkMenu->setEnabled(false);
+
     if (response.isArray() == false|| response.toArray().size() == 0)
         return;
 
@@ -486,6 +432,13 @@ void Settings::processDevices(const QJsonValue &response)
     listMenu->clear();
     fileMenu->clear();
     linkMenu->clear();
+    clipboardMenu->setEnabled(true);
+    noteMenu->setEnabled(true);
+    addressMenu->setEnabled(true);
+    listMenu->setEnabled(true);
+    fileMenu->setEnabled(true);
+    linkMenu->setEnabled(true);
+
     ui->tblDevicesList->clear();
 
     ui->tblDevicesList->setRowCount(devices.count());
@@ -520,19 +473,31 @@ void Settings::processDevices(const QJsonValue &response)
 
 void Settings::processSharedDevices(const QJsonValue &response)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (response.isArray() == false|| response.toArray().size() == 0)
         return;
 
     QJsonArray devices(response.toArray());
 
-    clipboardMenu->addSeparator();
-    noteMenu->addSeparator();
-    addressMenu->addSeparator();
-    listMenu->addSeparator();
-    fileMenu->addSeparator();
-    linkMenu->addSeparator();
-
     int starting_row = ui->tblDevicesList->rowCount();
+
+    if (starting_row > 0)
+    {
+        clipboardMenu->addSeparator();
+        noteMenu->addSeparator();
+        addressMenu->addSeparator();
+        listMenu->addSeparator();
+        fileMenu->addSeparator();
+        linkMenu->addSeparator();
+    }
+
+    clipboardMenu->setEnabled(true);
+    noteMenu->setEnabled(true);
+    addressMenu->setEnabled(true);
+    listMenu->setEnabled(true);
+    fileMenu->setEnabled(true);
+    linkMenu->setEnabled(true);
+
     ui->tblDevicesList->setRowCount(starting_row+devices.count());
     for (int i = 0; i < devices.count(); ++i)
     {
@@ -566,6 +531,7 @@ void Settings::processSharedDevices(const QJsonValue &response)
 
 void Settings::processResponse(const QJsonObject &response)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (response["created"].isNull())
         return;
 
@@ -583,6 +549,7 @@ void Settings::processResponse(const QJsonObject &response)
 }
 void Settings::sendNote(QString deviceDescription, int id)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     if (prompt->showPrompt("Send note to "+deviceDescription,"Title") != QDialog::Accepted)
     {
         return;
@@ -593,7 +560,7 @@ void Settings::sendNote(QString deviceDescription, int id)
 
 void Settings::sendAddress(QString deviceDescription, int id)
 {
-
+qDebug() << "In " << QString(__FUNCTION__);
     if (prompt->showPrompt("Send address to "+deviceDescription,"Name") != QDialog::Accepted)
     {
         return;
@@ -640,7 +607,7 @@ void Settings::sendList(QString deviceDescription, int id)
         multiPart->append(contentPart);
     }
 
-    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
     QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -685,7 +652,7 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
     contentPart.setBody(content.toUtf8());
     multiPart->append(contentPart);
 
-    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
     QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -694,12 +661,12 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
 
 void Settings::sendFile(QString deviceDescription, int id)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
 
     if (fileName.isEmpty())
     {
         tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
-        hide();
         return;
     }
 
@@ -708,7 +675,6 @@ void Settings::sendFile(QString deviceDescription, int id)
     {
         tray->showMessage("File to big",fileName+" is to big (max 10MB)",QSystemTrayIcon::Critical);
         delete file;
-        hide();
         return;
     }
 
@@ -737,7 +703,7 @@ void Settings::sendFile(QString deviceDescription, int id)
     multiPart->append(typePart);
     multiPart->append(filePart);
 
-    QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
     QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -746,6 +712,7 @@ void Settings::sendFile(QString deviceDescription, int id)
 
 void Settings::sendClipboard(QString , int id)
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     const QClipboard *clipboard = QApplication::clipboard();
     const QMimeData *mimeData = clipboard->mimeData();
 
@@ -785,7 +752,7 @@ void Settings::sendClipboard(QString , int id)
         multiPart->append(typePart);
         multiPart->append(filePart);
 
-        QNetworkRequest request(QUrl("https://www.pushbullet.com/api/pushes"));
+        QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
         addAuthentication(request);
 
         QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -809,7 +776,7 @@ void Settings::sendClipboard(QString , int id)
 
 void Settings::handleError(int errorCode, QString serverMessage)
 {
-
+qDebug() << "In " << QString(__FUNCTION__);
     QString error;
     switch (errorCode)
     {
@@ -835,14 +802,26 @@ void Settings::handleError(int errorCode, QString serverMessage)
         error = "The requested item doesn't exist.  Please check for an updated version of this software.";
         break;
     default:
-        error = "Something went wrong on PushBullet's side.  Error "+QString::number(errorCode)+": \n"+serverMessage;
+        if (errorCode >= 500)
+            error = "Something went wrong on PushBullet's side.\nHTTP error "+QString::number(errorCode)+": "+serverMessage;
+        else
+            error = "Something went wrong on with QBullet.\nHTTP error "+QString::number(errorCode)+": "+serverMessage;
     }
 
-    QMessageBox::critical(this,"An error occurred",error);
+    if (isVisible() || ! tray->supportsMessages())
+    {
+        setFocus();
+        QMessageBox::critical(this,"An error occurred",error);
+    }else
+    {
+        tray->showMessage("An error occurred",error,QSystemTrayIcon::Critical,0);
+    }
+
 
 }
 
 void Settings::about()
 {
+    qDebug() << "In " << QString(__FUNCTION__);
     QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion()+"\r\nIcon from http://inkedicon.deviantart.com/art/Bullet-Game-Icon-322005720");
 }

@@ -16,16 +16,22 @@ SOURCES += main.cpp\
         settings.cpp \
     logindialog.cpp \
     bullet.cpp \
-    prompt.cpp
+    prompt.cpp \
+    qbulletproxyfactory.cpp \
+    networkaccessmanager.cpp
 
 HEADERS  += settings.h \
     logindialog.h \
     bullet.h \
-    prompt.h
+    prompt.h \
+    qbulletproxyfactory.h \
+    networkaccessmanager.h
 
 FORMS    += settings.ui \
     logindialog.ui \
-    prompt.ui
+    prompt.ui \
+    passworddialog.ui \
+    proxy.ui
 
 OTHER_FILES += \
     QBullet.png \
