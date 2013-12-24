@@ -4,8 +4,14 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    a.setApplicationName("QBullet");
+    a.setApplicationDisplayName("QBullet PushBullet client");
+    a.setApplicationVersion("0.1");
+    a.setOrganizationName("Wian Potgieter");
+    a.setQuitOnLastWindowClosed(false);
     Settings w;
-//    w.show();
-    
+    //w.show();
+    w.loadConfig();
+
     return a.exec();
 }

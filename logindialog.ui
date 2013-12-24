@@ -14,7 +14,7 @@
    <string>Proxy Authentication</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="2">
+   <item row="0" column="0" colspan="3">
     <widget class="QLabel" name="lblMessage">
      <property name="text">
       <string>TextLabel</string>
@@ -28,7 +28,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="1" column="1" colspan="2">
     <widget class="QLineEdit" name="txtUsername"/>
    </item>
    <item row="2" column="0">
@@ -38,7 +38,7 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
+   <item row="2" column="1" colspan="2">
     <widget class="QLineEdit" name="txtPassword">
      <property name="echoMode">
       <enum>QLineEdit::Password</enum>
@@ -46,6 +46,16 @@
     </widget>
    </item>
    <item row="3" column="0" colspan="2">
+    <widget class="QCheckBox" name="cbRemeber">
+     <property name="text">
+      <string>&amp;Remember</string>
+     </property>
+     <property name="shortcut">
+      <string>R</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
