@@ -68,6 +68,7 @@ private:
     void processSharedDevices(const QJsonValue &);
     void processResponse(const QJsonObject &);
     const QString detectClipboardContents(const QMimeData &mimeData);
+    void sendFilePrivate(int id, const QString fileName);
     bool proxyAuthenticationSupplied;
 protected slots:
     void replyReceived(QNetworkReply* reply);

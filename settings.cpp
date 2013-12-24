@@ -72,7 +72,7 @@ Settings::Settings(QWidget *parent) :
 
     menu->addSeparator();
     menu->addAction("&Settings",this,SLOT(show()));
-    menu->addAction("&Update Devices",this,SLOT(getDevices()));
+    menu->addAction("&Update Device List",this,SLOT(getDevices()));
     menu->addSeparator();
     menu->addAction("&Exit",this,SLOT(exit()));
 
@@ -256,7 +256,7 @@ void Settings::executeTest()
 void Settings::getDevices()
 {
     qDebug() << "In " << QString(__FUNCTION__);
-    QUrl url("http://api.pushbullet.com/api/devices");
+    QUrl url("https://api.pushbullet.com/api/devices");
     QNetworkRequest qnr(url);
     addAuthentication(qnr);
     networkaccess->get(qnr);
@@ -348,11 +348,11 @@ const QString Settings::detectClipboardContents(const QMimeData &mimeData)
         return "image";
     } else if (mimeData.hasUrls())
     {
-        if ((mimeData.text().startsWith("https://maps.google") || mimeData.text().startsWith("http://goo.gl/maps")))
+        if ((mimeData.text().startsWith("http://maps.google") || mimeData.text().startsWith("http://goo.gl/maps")))
         {
             return "address";
         }
-        else if (mimeData.text().startsWith("file://"))
+        else if (mimeData.urls()[0].isLocalFile())
         {
             return "file";
         }else if (mimeData.text().startsWith("http") || mimeData.text().startsWith("ftp") || mimeData.text().startsWith("email"))
@@ -402,7 +402,7 @@ void Settings::renameClipboardMenu()
     if (!content.isEmpty()){
         clipboardMenu->setTitle("Clipboard "+content+" to");
 
-        if(content != "file")
+        //if(content != "file")
             clipboardMenu->setEnabled(true);
     }
 }
@@ -607,7 +607,7 @@ void Settings::sendList(QString deviceDescription, int id)
         multiPart->append(contentPart);
     }
 
-    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
     QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -652,7 +652,7 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
     contentPart.setBody(content.toUtf8());
     multiPart->append(contentPart);
 
-    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
     QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -669,6 +669,12 @@ void Settings::sendFile(QString deviceDescription, int id)
         tray->showMessage("No File selected","You did not select a file.  Please try again.",QSystemTrayIcon::Warning);
         return;
     }
+
+    sendFilePrivate(id, fileName);
+}
+
+void Settings::sendFilePrivate( int id, const QString fileName)
+{
 
     QFile *file = new QFile(fileName);
     if (file->size() > 10*1024*1024)
@@ -703,11 +709,11 @@ void Settings::sendFile(QString deviceDescription, int id)
     multiPart->append(typePart);
     multiPart->append(filePart);
 
-    QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
-    QNetworkReply *reply = networkaccess->post(request, multiPart);
-    multiPart->setParent(reply); // delete the multiPart with the reply
+
+    multiPart->setParent(networkaccess->post(request, multiPart)); // delete the multiPart with the reply
 }
 
 void Settings::sendClipboard(QString , int id)
@@ -717,8 +723,16 @@ void Settings::sendClipboard(QString , int id)
     const QMimeData *mimeData = clipboard->mimeData();
 
     QString content(detectClipboardContents(*mimeData));
+    qDebug() << "It's a "<< content;
 
-    if (content == "image")
+
+    if (content == "file" )
+    {
+        //File:
+
+        sendFilePrivate(id, mimeData->urls()[0].toLocalFile());
+
+    }else if (content == "image" )
     {
         QImage image = qvariant_cast<QImage>(mimeData->imageData());
 
@@ -752,7 +766,7 @@ void Settings::sendClipboard(QString , int id)
         multiPart->append(typePart);
         multiPart->append(filePart);
 
-        QNetworkRequest request(QUrl("http://api.pushbullet.com/api/pushes"));
+        QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
         addAuthentication(request);
 
         QNetworkReply *reply = networkaccess->post(request, multiPart);
@@ -823,5 +837,5 @@ qDebug() << "In " << QString(__FUNCTION__);
 void Settings::about()
 {
     qDebug() << "In " << QString(__FUNCTION__);
-    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion()+"\r\nIcon from http://inkedicon.deviantart.com/art/Bullet-Game-Icon-322005720");
+    QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion()+"\r\nIcon from https://inkedicon.deviantart.com/art/Bullet-Game-Icon-322005720");
 }
