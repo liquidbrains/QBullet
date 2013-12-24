@@ -698,8 +698,8 @@ void Settings::sendFilePrivate( int id, const QString fileName)
     QMimeDatabase mdb;
     QString fileNamePart(QFileInfo(fileName).fileName());
     qDebug() << "Mime type: "<< mdb.mimeTypeForFile(fileName).name();
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\"; filename=\"")+fileNamePart+"\""));
     filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileName).name()));
-    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
 
     file->open(QIODevice::ReadOnly);
     filePart.setBodyDevice(file);
