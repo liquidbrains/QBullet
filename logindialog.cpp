@@ -39,3 +39,8 @@ void LoginDialog::setMessage(const QString proxy, const QString type)
 
 QString LoginDialog::user() { return ui->txtUsername->text();}
 QString LoginDialog::password(){ return ui->txtPassword->text(); }
+bool LoginDialog::remember(){ return ui->cbRemeber->checkState()== Qt::Checked; }
+
+void LoginDialog::setUser(QString user) { ui->txtUsername->setText(user);}
+void LoginDialog::setPassword(QString password){ ui->txtPassword->setText(password); }
+void LoginDialog::setRemember(bool checked){ ui->cbRemeber->setChecked(checked); }

@@ -14,16 +14,28 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         settings.cpp \
-    logindialog.cpp
+    logindialog.cpp \
+    bullet.cpp \
+    prompt.cpp \
+    qbulletproxyfactory.cpp \
+    networkaccessmanager.cpp
 
 HEADERS  += settings.h \
-    logindialog.h
+    logindialog.h \
+    bullet.h \
+    prompt.h \
+    qbulletproxyfactory.h \
+    networkaccessmanager.h
 
 FORMS    += settings.ui \
-    logindialog.ui
+    logindialog.ui \
+    prompt.ui \
+    passworddialog.ui \
+    proxy.ui
 
 OTHER_FILES += \
-    QBullet.png
+    QBullet.png \
+    README.txt
 
 RESOURCES += \
     resources.qrc

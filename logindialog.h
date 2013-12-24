@@ -15,6 +15,10 @@ public:
     explicit LoginDialog(QWidget *parent = 0);
     QString user() ;
     QString password();
+    void setUser(QString user) ;
+    void setPassword(QString password);
+    void setRemember(bool checked);
+    bool remember();
     void setMessage(const QString proxy, const QString type = "");
     ~LoginDialog();
 signals:
