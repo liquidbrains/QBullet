@@ -734,7 +734,7 @@ void Settings::sendClipboard(QString , int id)
 
     }else if (content == "image" )
     {
-        QImage image = qvariant_cast<QImage>(mimeData->imageData());
+        QImage image(qvariant_cast<QImage>(mimeData->imageData()));
 
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
@@ -751,7 +751,7 @@ void Settings::sendClipboard(QString , int id)
         QString fileNamePart("Clipboard Image.png");
 
         filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileNamePart).name()));
-        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\" filename=\"")+fileNamePart+"\""));
+        filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\"; filename=\"")+fileNamePart+"\""));
 
         QByteArray *ba = new QByteArray();
         QBuffer *buffer = new QBuffer(ba);
