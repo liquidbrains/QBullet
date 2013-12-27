@@ -601,7 +601,7 @@ void Settings::sendList(QString deviceDescription, int id)
     for (QStringList::const_iterator i = list.begin(); i != list.end(); ++i)
     {
         QHttpPart contentPart;
-        contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"items["+QString::number(i-list.begin())+"]\""));
+        contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"items\""));
         QString item(*i);
         contentPart.setBody(item.toUtf8());
         multiPart->append(contentPart);
