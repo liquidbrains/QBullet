@@ -9,17 +9,17 @@ class Bullet : public QObject
     Q_OBJECT
 
     QString deviceDescription;
-    int id;
+    QString id;
 public:
-    explicit Bullet(QString deviceDescription, int id,QObject *parent = 0);
+    explicit Bullet(QString deviceDescription, QString id,QObject *parent = 0);
     virtual ~Bullet();
 signals:
-    void sendClipboard(QString deviceDescription, int id);
-    void sendNote(QString deviceDescription, int id);
-    void sendAddress(QString deviceDescription, int id);
-    void sendList(QString deviceDescription, int id);
-    void sendLink(QString deviceDescription, int id);
-    void sendFile(QString deviceDescription, int id);
+    void sendClipboard(QString deviceDescription, const QString &);
+    void sendNote(QString deviceDescription, const QString &);
+    void sendAddress(QString deviceDescription,const QString &);
+    void sendList(QString deviceDescription, const QString &);
+    void sendLink(QString deviceDescription, const QString &);
+    void sendFile(QString deviceDescription, const QString &);
 public slots:
     void sendClipboard();
     void sendNote();
