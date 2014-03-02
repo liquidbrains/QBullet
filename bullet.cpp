@@ -2,7 +2,7 @@
 #include <QJsonValue>
 #include <QDebug>
 
-Bullet::Bullet(QString _deviceDescription, int _id,QObject *parent) :
+Bullet::Bullet(QString _deviceDescription, QString _id, QObject *parent) :
     QObject(parent),deviceDescription(_deviceDescription),id(_id)
 {
 }

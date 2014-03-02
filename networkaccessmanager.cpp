@@ -198,7 +198,11 @@ void NetworkAccessManager::proxyAuthenticationRequired(const QNetworkProxy &prox
 
     if (dialog.exec() == QDialog::Accepted) {
         auth->setUser(proxyDialog.userNameLineEdit->text());
+        settings->beginGroup(QLatin1String("proxy"));
+        settings->setValue("userName",proxyDialog.userNameLineEdit->text());
         auth->setPassword(proxyDialog.passwordLineEdit->text());
+        settings->endGroup();
+        loadSettings();
     }
 }
 

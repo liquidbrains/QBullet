@@ -44,7 +44,7 @@ Settings::Settings(QWidget *parent) :
     prompt(new Prompt(this)),
     showResult(false),
     exitClicked(false),
-    devices(QMap<int,QString>()),
+    devices(QMap<QString,QString>()),
     proxyAuthenticationSupplied(false)
 {
     ui->setupUi(this);
@@ -55,6 +55,7 @@ Settings::Settings(QWidget *parent) :
     connect(ui->btnTest,SIGNAL(clicked()),this,SLOT(executeTest()));
 
     tray->setIcon(QIcon(":icons/QBullet.png"));
+
     tray->show();
     connect(tray,SIGNAL(messageClicked()),this,SLOT(show()));
 
@@ -186,6 +187,12 @@ void Settings::exit()
     tray->setVisible(false);
     QApplication::exit();
 }
+
+void Settings::uploadProgress(qint64, qint64)
+{
+
+}
+
 
 void Settings::show()
 {
@@ -445,22 +452,23 @@ void Settings::processDevices(const QJsonValue &response)
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
-        ui->tblDevicesList->setItem(i,0,new QTableWidgetItem(QString::number((int)device["id"].toDouble())));
+        qDebug() << device["id"].toString() << ":"<<device["id"].toInt();
+        ui->tblDevicesList->setItem(i,0,new QTableWidgetItem(device["id"].toString()));
         ui->tblDevicesList->setItem(i,1,new QTableWidgetItem("Yours"));
         ui->tblDevicesList->setItem(i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
         ui->tblDevicesList->setItem(i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
         ui->tblDevicesList->setItem(i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
-        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
-        this->devices.insert((int)device["id"].toDouble(),deviceDescription);
+        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+device["id"].toString()+")");
+        this->devices.insert(device["id"].toString(),deviceDescription);
 
-        Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
-        connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
-        connect(bullet,SIGNAL(sendNote(QString,int)),this,SLOT(sendNote(QString,int)));
-        connect(bullet,SIGNAL(sendList(QString,int)),this,SLOT(sendList(QString,int)));
-        connect(bullet,SIGNAL(sendLink(QString,int)),this,SLOT(sendLink(QString,int)));
-        connect(bullet,SIGNAL(sendFile(QString,int)),this,SLOT(sendFile(QString,int)));
-        connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,int)));
+        Bullet *bullet = new Bullet(deviceDescription,device["id"].toString(),foo);
+        connect(bullet,SIGNAL(sendAddress(QString,const QString & )),this,SLOT(sendAddress(QString,const QString &)));
+        connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
+        connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
+        connect(bullet,SIGNAL(sendLink(QString,const QString & )),this,SLOT(sendLink(QString,const QString & )));
+        connect(bullet,SIGNAL(sendFile(QString,const QString & )),this,SLOT(sendFile(QString,const QString & )));
+        connect(bullet,SIGNAL(sendClipboard(QString,const QString & )),this,SLOT(sendClipboard(QString,const QString & )));
 
         noteMenu->addAction(deviceDescription,bullet,SLOT(sendNote()));
         addressMenu->addAction(deviceDescription,bullet,SLOT(sendAddress()));
@@ -503,22 +511,22 @@ void Settings::processSharedDevices(const QJsonValue &response)
     {
         QJsonObject device(devices[i].toObject());
 
-        ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(QString::number((int)device["id"].toDouble())));
+        ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(device["id"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,1,new QTableWidgetItem(device["owner_name"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
-        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+QString::number((int)device["id"].toDouble())+")");
-        this->devices.insert((int)device["id"].toDouble(),deviceDescription);
+        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+device["id"].toString()+")");
+        this->devices.insert(device["id"].toString(),deviceDescription);
 
-        Bullet *bullet = new Bullet(deviceDescription,(int)device["id"].toDouble(),foo);
-        connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,int)));
-        connect(bullet,SIGNAL(sendNote(QString,int)),this,SLOT(sendNote(QString,int)));
-        connect(bullet,SIGNAL(sendList(QString,int)),this,SLOT(sendList(QString,int)));
-        connect(bullet,SIGNAL(sendLink(QString,int)),this,SLOT(sendLink(QString,int)));
-        connect(bullet,SIGNAL(sendFile(QString,int)),this,SLOT(sendFile(QString,int)));
-        connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,int)));
+        Bullet *bullet = new Bullet(deviceDescription,device["id"].toString(),foo);
+        connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,const QString & )));
+        connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
+        connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
+        connect(bullet,SIGNAL(sendLink(QString,const QString & )),this,SLOT(sendLink(QString,const QString & )));
+        connect(bullet,SIGNAL(sendFile(QString,const QString & )),this,SLOT(sendFile(QString,const QString & )));
+        connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,const QString & )));
 
         noteMenu->addAction(deviceDescription,bullet,SLOT(sendNote()));
         addressMenu->addAction(deviceDescription,bullet,SLOT(sendAddress()));
@@ -536,18 +544,18 @@ void Settings::processResponse(const QJsonObject &response)
         return;
 
     QString description;
-    if (devices.contains((int)response["device_id"].toDouble()))
+    if (devices.contains(response["device_id"].toString()))
     {
-        description = devices[(int)response["device_id"].toDouble()];
+        description = devices[response["device_id"].toString()];
     }
     else
     {
-        description = "Unknown device "+QString::number(response["device_id"].toDouble());
+        description = "Unknown device "+response["device_id"].toString();
     }
 
     tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to "+description);
 }
-void Settings::sendNote(QString deviceDescription, int id)
+void Settings::sendNote(QString deviceDescription, const QString &id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
     if (prompt->showPrompt("Send note to "+deviceDescription,"Title") != QDialog::Accepted)
@@ -558,7 +566,7 @@ void Settings::sendNote(QString deviceDescription, int id)
     sendText(id,"note",prompt->getTitle(),"body",prompt->getText());
 }
 
-void Settings::sendAddress(QString deviceDescription, int id)
+void Settings::sendAddress(QString deviceDescription, const QString &id)
 {
 qDebug() << "In " << QString(__FUNCTION__);
     if (prompt->showPrompt("Send address to "+deviceDescription,"Name") != QDialog::Accepted)
@@ -569,7 +577,7 @@ qDebug() << "In " << QString(__FUNCTION__);
     sendText(id,"address",prompt->getTitle(),"address",prompt->getText());
 }
 
-void Settings::sendList(QString deviceDescription, int id)
+void Settings::sendList(QString deviceDescription, const QString &id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
 
@@ -582,7 +590,7 @@ void Settings::sendList(QString deviceDescription, int id)
 
     QHttpPart devicePart;
     devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-    devicePart.setBody(QString::number(id).toLatin1());
+    devicePart.setBody(id.toLatin1());
     multiPart->append(devicePart);
 
     QHttpPart typePart;
@@ -616,7 +624,7 @@ void Settings::sendList(QString deviceDescription, int id)
     qDebug() << "Out " << QString(__FUNCTION__);
 }
 
-void Settings::sendLink(QString deviceDescription, int id)
+void Settings::sendLink(QString deviceDescription, const QString &id)
 {
     if (prompt->showPrompt("Send link to "+deviceDescription,"Title") != QDialog::Accepted)
     {
@@ -626,14 +634,14 @@ void Settings::sendLink(QString deviceDescription, int id)
     sendText(id,"link",prompt->getTitle(),"url",prompt->getText());
 }
 
-void Settings::sendText(int id, QString type, const QString title, QString contentType, const QString content)
+void Settings::sendText(const QString &id, QString type, const QString title, QString contentType, const QString content)
 {
     qDebug() << "In " << QString(__FUNCTION__);
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
     devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-    devicePart.setBody(QString::number(id).toLatin1());
+    devicePart.setBody(id.toLatin1());
     multiPart->append(devicePart);
 
     QHttpPart typePart;
@@ -659,7 +667,7 @@ void Settings::sendText(int id, QString type, const QString title, QString conte
     multiPart->setParent(reply); // delete the multiPart with the reply
 }
 
-void Settings::sendFile(QString deviceDescription, int id)
+void Settings::sendFile(QString deviceDescription, const QString &id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
     QString fileName(QFileDialog::getOpenFileName(0,"Select file to be sent to: "+deviceDescription));
@@ -673,7 +681,7 @@ void Settings::sendFile(QString deviceDescription, int id)
     sendFilePrivate(id, fileName);
 }
 
-void Settings::sendFilePrivate( int id, const QString fileName)
+void Settings::sendFilePrivate(const QString &id, const QString fileName)
 {
 
     QFile *file = new QFile(fileName);
@@ -688,7 +696,7 @@ void Settings::sendFilePrivate( int id, const QString fileName)
 
     QHttpPart devicePart;
     devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-    devicePart.setBody(QString::number(id).toLatin1());
+    devicePart.setBody(id.toLatin1());
 
     QHttpPart typePart;
     typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
@@ -712,11 +720,12 @@ void Settings::sendFilePrivate( int id, const QString fileName)
     QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
     addAuthentication(request);
 
-
-    multiPart->setParent(networkaccess->post(request, multiPart)); // delete the multiPart with the reply
+    QNetworkReply *post = networkaccess->post(request, multiPart);
+    connect(post,SIGNAL(uploadProgress(qint64,qint64)),this,SLOT(uploadProgress(int, int)));
+    multiPart->setParent(post); // delete the multiPart with the reply
 }
 
-void Settings::sendClipboard(QString , int id)
+void Settings::sendClipboard(QString , const QString & id)
 {
     qDebug() << "In " << QString(__FUNCTION__);
     const QClipboard *clipboard = QApplication::clipboard();
@@ -740,7 +749,7 @@ void Settings::sendClipboard(QString , int id)
 
         QHttpPart devicePart;
         devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
-        devicePart.setBody(QString::number(id).toLatin1());
+        devicePart.setBody(id.toLatin1());
 
         QHttpPart typePart;
         typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));

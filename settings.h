@@ -46,6 +46,7 @@ public slots:
     virtual void exit();
     virtual void closeEvent(QCloseEvent *);
     virtual void trayActivated(QSystemTrayIcon::ActivationReason);
+    virtual void uploadProgress(qint64, qint64);
 private:
     Ui::Settings *ui;
     QSettings *settings;
@@ -62,23 +63,23 @@ private:
     Prompt *prompt;
     bool showResult;
     bool exitClicked;
-    QMap<int,QString> devices;
+    QMap<QString,QString> devices;
     void addAuthentication(QNetworkRequest &request);
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);
     void processResponse(const QJsonObject &);
     const QString detectClipboardContents(const QMimeData &mimeData);
-    void sendFilePrivate(int id, const QString fileName);
+    void sendFilePrivate(const QString &  id, const QString fileName);
     bool proxyAuthenticationSupplied;
 protected slots:
     void replyReceived(QNetworkReply* reply);
-    void sendNote(QString deviceDescription, int id);
-    void sendClipboard(QString deviceDescription, int id);
-    void sendAddress(QString deviceDescription, int id);
-    void sendList(QString deviceDescription, int id);
-    void sendLink(QString deviceDescription, int id);
-    void sendFile(QString deviceDescription, int id);
-    void sendText(int id, QString type, const QString title, QString contentType, const QString content);
+    void sendNote(QString deviceDescription, const QString & id);
+    void sendClipboard(QString deviceDescription, const QString & id);
+    void sendAddress(QString deviceDescription, const QString &  id);
+    void sendList(QString deviceDescription, const QString &  id);
+    void sendLink(QString deviceDescription, const QString &  id);
+    void sendFile(QString deviceDescription, const QString &  id);
+    void sendText(const QString &  id, QString type, const QString title, QString contentType, const QString content);
     void renameClipboardMenu();
     void handleError(int errorCode, QString serverMessage);
     void about();

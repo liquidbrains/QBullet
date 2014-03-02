@@ -35,7 +35,10 @@ FORMS    += settings.ui \
 
 OTHER_FILES += \
     QBullet.png \
-    README.txt
+    README.txt \
+    myapp.rc
 
 RESOURCES += \
     resources.qrc
+
+RC_FILE = myapp.rc
