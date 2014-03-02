@@ -452,17 +452,17 @@ void Settings::processDevices(const QJsonValue &response)
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
-        qDebug() << device["id"].toString() << ":"<<device["id"].toInt();
-        ui->tblDevicesList->setItem(i,0,new QTableWidgetItem(device["id"].toString()));
+
+        ui->tblDevicesList->setItem(i,0,new QTableWidgetItem(device["iden"].toString()));
         ui->tblDevicesList->setItem(i,1,new QTableWidgetItem("Yours"));
         ui->tblDevicesList->setItem(i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
         ui->tblDevicesList->setItem(i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
         ui->tblDevicesList->setItem(i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
-        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+device["id"].toString()+")");
-        this->devices.insert(device["id"].toString(),deviceDescription);
+        QString deviceDescription("Your "+device["extras"].toObject()["model"].toString()+" ("+device["iden"].toString()+")");
+        this->devices.insert(device["iden"].toString(),deviceDescription);
 
-        Bullet *bullet = new Bullet(deviceDescription,device["id"].toString(),foo);
+        Bullet *bullet = new Bullet(deviceDescription,device["iden"].toString(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,const QString & )),this,SLOT(sendAddress(QString,const QString &)));
         connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
         connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
@@ -511,16 +511,16 @@ void Settings::processSharedDevices(const QJsonValue &response)
     {
         QJsonObject device(devices[i].toObject());
 
-        ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(device["id"].toString()));
+        ui->tblDevicesList->setItem(starting_row+i,0,new QTableWidgetItem(device["iden"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,1,new QTableWidgetItem(device["owner_name"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,2,new QTableWidgetItem(device["extras"].toObject()["manufacturer"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,3,new QTableWidgetItem(device["extras"].toObject()["model"].toString()));
         ui->tblDevicesList->setItem(starting_row+i,4,new QTableWidgetItem(device["extras"].toObject()["android_version"].toString()));
 
-        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+device["id"].toString()+")");
-        this->devices.insert(device["id"].toString(),deviceDescription);
+        QString deviceDescription(device["owner_name"].toString()+"'s "+device["extras"].toObject()["model"].toString()+" ("+device["iden"].toString()+")");
+        this->devices.insert(device["iden"].toString(),deviceDescription);
 
-        Bullet *bullet = new Bullet(deviceDescription,device["id"].toString(),foo);
+        Bullet *bullet = new Bullet(deviceDescription,device["iden"].toString(),foo);
         connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,const QString & )));
         connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
         connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
@@ -544,13 +544,13 @@ void Settings::processResponse(const QJsonObject &response)
         return;
 
     QString description;
-    if (devices.contains(response["device_id"].toString()))
+    if (devices.contains(response["device_iden"].toString()))
     {
-        description = devices[response["device_id"].toString()];
+        description = devices[response["device_iden"].toString()];
     }
     else
     {
-        description = "Unknown device "+response["device_id"].toString();
+        description = "Unknown device "+response["device_iden"].toString();
     }
 
     tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to "+description);
@@ -589,7 +589,7 @@ void Settings::sendList(QString deviceDescription, const QString &id)
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
     devicePart.setBody(id.toLatin1());
     multiPart->append(devicePart);
 
@@ -640,7 +640,7 @@ void Settings::sendText(const QString &id, QString type, const QString title, QS
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
     devicePart.setBody(id.toLatin1());
     multiPart->append(devicePart);
 
@@ -695,7 +695,7 @@ void Settings::sendFilePrivate(const QString &id, const QString fileName)
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
     QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
     devicePart.setBody(id.toLatin1());
 
     QHttpPart typePart;
@@ -748,7 +748,7 @@ void Settings::sendClipboard(QString , const QString & id)
         QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
         QHttpPart devicePart;
-        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_id\""));
+        devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
         devicePart.setBody(id.toLatin1());
 
         QHttpPart typePart;
