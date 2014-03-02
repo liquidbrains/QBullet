@@ -544,13 +544,13 @@ void Settings::processResponse(const QJsonObject &response)
         return;
 
     QString description;
-    if (devices.contains(response["device_iden"].toString()))
+    if (devices.contains(response["target_device_iden"].toString()))
     {
-        description = devices[response["device_iden"].toString()];
+        description = devices[response["target_device_iden"].toString()];
     }
     else
     {
-        description = "Unknown device "+response["device_iden"].toString();
+        description = "Unknown device "+response["target_device_iden"].toString();
     }
 
     tray->showMessage("Sending successfull","Your "+response["data"].toObject()["type"].toString()+ " has been successfully sent to "+description);
