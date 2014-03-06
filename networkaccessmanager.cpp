@@ -144,8 +144,8 @@ void NetworkAccessManager::loadSettings()
 
         proxy.setHostName(settings->value(QLatin1String("hostName")).toString());
         proxy.setPort(settings->value(QLatin1String("port"), 8080).toInt());
-        proxy.setUser(settings->value(QLatin1String("userName")).toString());
-        proxy.setPassword(settings->value(QLatin1String("password")).toString());
+        //proxy.setUser(settings->value(QLatin1String("userName")).toString());
+        //proxy.setPassword(settings->value(QLatin1String("password")).toString());
     }
     settings->endGroup();
     setProxy(proxy);
@@ -179,6 +179,7 @@ void NetworkAccessManager::authenticationRequired(QNetworkReply *reply, QAuthent
 
 void NetworkAccessManager::proxyAuthenticationRequired(const QNetworkProxy &proxy, QAuthenticator *auth)
 {
+    settings->beginGroup(QLatin1String("proxy"));
     QWidget *parent = ((QWidget*)QNetworkAccessManager::parent());
     QDialog dialog(parent->isVisible()?parent:NULL);
     dialog.setWindowFlags(Qt::Sheet);
@@ -191,19 +192,28 @@ void NetworkAccessManager::proxyAuthenticationRequired(const QNetworkProxy &prox
 
     QString introMessage = tr("<qt>Connect to proxy \"%1\" using:</qt>");
     introMessage = introMessage.arg(proxy.hostName().toHtmlEscaped());
+
+
+    if (settings->value("userName").toString().isEmpty() == false)
+    {
+        proxyDialog.userNameLineEdit->setText(settings->value("userName").toString());
+
+    }
     proxyDialog.introLabel->setText(introMessage);
     proxyDialog.introLabel->setWordWrap(true);
 
     dialog.setFocus();
+    proxyDialog.passwordLineEdit->setFocus();
 
     if (dialog.exec() == QDialog::Accepted) {
         auth->setUser(proxyDialog.userNameLineEdit->text());
-        settings->beginGroup(QLatin1String("proxy"));
+
         settings->setValue("userName",proxyDialog.userNameLineEdit->text());
         auth->setPassword(proxyDialog.passwordLineEdit->text());
-        settings->endGroup();
+
         loadSettings();
     }
+    settings->endGroup();
 }
 
 #ifndef QT_NO_OPENSSL
