@@ -90,6 +90,15 @@ Settings::Settings(QWidget *parent) :
     ui->cmbProxyType->addItem("HTTP",QNetworkProxy::HttpProxy);
     //ui->cmbProxyType->addItem("HTTP Caching",QNetworkProxy::HttpCachingProxy);
     ui->cmbProxyType->addItem("Socks 5",QNetworkProxy::Socks5Proxy);
+
+    connect(qApp,SIGNAL(aboutToQuit()),this,SLOT(exit()));
+
+    settings->beginGroup("proxy");
+    if (settings->contains("password"))
+    {
+        settings->remove("password");
+    }
+    settings->endGroup();
 }
 
 Settings::~Settings()
@@ -143,7 +152,7 @@ void Settings::accept()
     settings->setValue("apiKey",ui->txtAPIKey->text());
     settings->beginGroup("proxy");
     settings->setValue("userName",ui->txtProxyUsername->text());
-    settings->setValue("password",ui->txtProxyPassword->text());
+    //settings->setValue("password",ui->txtProxyPassword->text());
     settings->setValue("hostName",ui->txtProxyServer->text());
     settings->setValue("port",ui->sbPort->value());
     settings->setValue("type",ui->cmbProxyType->itemData(ui->cmbProxyType->currentIndex()).toInt());
@@ -184,6 +193,7 @@ void Settings::exit()
 {
     qDebug() << "In " << QString(__FUNCTION__);
     exitClicked = true;
+    tray->hide();
     tray->setVisible(false);
     QApplication::exit();
 }
@@ -210,7 +220,7 @@ void Settings::show()
     ui->sbPort->setEnabled(settings->value("type",QNetworkProxy::NoProxy).toInt() != QNetworkProxy::NoProxy);
 
     ui->txtProxyUsername->setText(settings->value("userName","").toString());
-    ui->txtProxyPassword->setText(settings->value("password","").toString());
+//    ui->txtProxyPassword->setText(settings->value("password","").toString());
 
 
 
