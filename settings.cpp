@@ -99,6 +99,8 @@ Settings::Settings(QWidget *parent) :
         settings->remove("password");
     }
     settings->endGroup();
+
+    networkaccess->loadSettings();
 }
 
 Settings::~Settings()
