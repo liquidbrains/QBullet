@@ -45,7 +45,8 @@ Settings::Settings(QWidget *parent) :
     showResult(false),
     exitClicked(false),
     devices(QMap<QString,QString>()),
-    proxyAuthenticationSupplied(false)
+    proxyAuthenticationSupplied(false),
+    uploadFilePath("")
 {
     ui->setupUi(this);
 
@@ -74,6 +75,7 @@ Settings::Settings(QWidget *parent) :
     menu->addSeparator();
     menu->addAction("&Settings",this,SLOT(show()));
     menu->addAction("&Update Device List",this,SLOT(getDevices()));
+    menu->addAction("S&how pushes", this, SLOT(showPushes()));
     menu->addSeparator();
     menu->addAction("&Exit",this,SLOT(exit()));
 
@@ -114,7 +116,7 @@ void Settings::replyReceived(QNetworkReply* reply)
     qDebug() << "In " << QString(__FUNCTION__);
     qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     qDebug() << reply->error() << " " << reply->errorString();
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200 && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 204)
     {
         qDebug() << "Reply data: "<<data;
         handleError(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),reply->errorString());
@@ -287,7 +289,9 @@ void Settings::addAuthentication(QNetworkRequest &request)
     QString header = "Basic ";
     header+=(settings->value("apiKey","").toString()+":").toLatin1().toBase64();
     request.setRawHeader(QString("Authorization").toLatin1(),header.toLatin1());
+#ifdef __DEBUG__
 #define QT_DECRYPT_SSL_TRAFFIC
+#endif
 }
 
 void Settings::handleResponse(QByteArray &response)
@@ -552,6 +556,16 @@ void Settings::processSharedDevices(const QJsonValue &response)
 void Settings::processResponse(const QJsonObject &response)
 {
     qDebug() << "In " << QString(__FUNCTION__);
+
+    if (response["file_url"].isString())
+    {
+        sendFilePartTwo(response["upload_url"].toString(),response["data"].toObject(),uploadFilePath);
+        uploadFilePath = "";
+        return;
+    }
+
+    uploadFilePath= "";
+
     if (response["created"].isNull())
         return;
 
@@ -598,40 +612,28 @@ void Settings::sendList(QString deviceDescription, const QString &id)
         return;
     }
 
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    QJsonObject jso;
+    jso.insert("device_iden",QJsonValue(id));
+    jso.insert("type",QJsonValue("list"));
+    jso.insert("title",QJsonValue(prompt->getTitle()));
 
-    QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
-    devicePart.setBody(id.toLatin1());
-    multiPart->append(devicePart);
-
-    QHttpPart typePart;
-    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-    typePart.setBody("list");
-    multiPart->append(typePart);
-
-    QHttpPart titlePart;
-    titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"title\""));
-
-    titlePart.setBody(prompt->getTitle().toUtf8());
-    multiPart->append(titlePart);
+    QJsonArray items;
 
     QStringList list(prompt->getText().split(QRegExp("[\r\n]"),QString::SkipEmptyParts));
-
     for (QStringList::const_iterator i = list.begin(); i != list.end(); ++i)
     {
-        QHttpPart contentPart;
-        contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"items\""));
-        QString item(*i);
-        contentPart.setBody(item.toUtf8());
-        multiPart->append(contentPart);
+        items.insert(i-list.begin(),QJsonValue(*i));
     }
 
-    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
-    addAuthentication(request);
+    jso.insert("items",items);
 
-    QNetworkReply *reply = networkaccess->post(request, multiPart);
-    multiPart->setParent(reply); // delete the multiPart with the reply
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/pushes"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
+    addAuthentication(request);
+    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
+    qDebug() <<"***************";
+    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
+    //multiPart->setParent(reply); // delete the multiPart with the reply
 
     qDebug() << "Out " << QString(__FUNCTION__);
 }
@@ -649,34 +651,19 @@ void Settings::sendLink(QString deviceDescription, const QString &id)
 void Settings::sendText(const QString &id, QString type, const QString title, QString contentType, const QString content)
 {
     qDebug() << "In " << QString(__FUNCTION__);
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    QJsonObject jso;
+    jso.insert("device_iden",QJsonValue(id));
+    jso.insert("type",QJsonValue(QString(type)));
+    jso.insert(contentType=="address"?"name":"title",QJsonValue(title));
+    jso.insert(contentType,QJsonValue(content));
 
-    QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
-    devicePart.setBody(id.toLatin1());
-    multiPart->append(devicePart);
-
-    QHttpPart typePart;
-    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-    typePart.setBody(type.toLatin1());
-    multiPart->append(typePart);
-
-    QHttpPart titlePart;
-    titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\""+QString(contentType=="address"?"name":"title")+"\""));
-
-    titlePart.setBody(title.toUtf8());
-    multiPart->append(titlePart);
-
-    QHttpPart contentPart;
-    contentPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\""+contentType.toUtf8()+"\""));
-    contentPart.setBody(content.toUtf8());
-    multiPart->append(contentPart);
-
-    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/pushes"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
     addAuthentication(request);
+    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
+    qDebug() <<"***************";
+    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
 
-    QNetworkReply *reply = networkaccess->post(request, multiPart);
-    multiPart->setParent(reply); // delete the multiPart with the reply
 }
 
 void Settings::sendFile(QString deviceDescription, const QString &id)
@@ -704,36 +691,63 @@ void Settings::sendFilePrivate(const QString &id, const QString fileName)
         return;
     }
 
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    delete file;
 
-    QHttpPart devicePart;
-    devicePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
-    devicePart.setBody(id.toLatin1());
-
-    QHttpPart typePart;
-    typePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"type\""));
-    typePart.setBody("file");
-
-    QHttpPart filePart;
     QMimeDatabase mdb;
     QString fileNamePart(QFileInfo(fileName).fileName());
     qDebug() << "Mime type: "<< mdb.mimeTypeForFile(fileName).name();
+
+    QJsonObject jso;
+    jso.insert("device_iden",QJsonValue(id));
+    jso.insert("file_type",QJsonValue(mdb.mimeTypeForFile(fileName).name()));
+    jso.insert("file_name",QJsonValue(fileNamePart));
+
+    QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/upload-request"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
+    addAuthentication(request);
+    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
+    qDebug() <<"***************";
+    uploadFilePath= fileName;
+    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
+}
+
+void Settings::sendFilePartTwo(const QString &uploadURL, const QJsonObject &data, const QString &fileName)
+{
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    QFile *file = new QFile(fileName);
+    QString fileNamePart(QFileInfo(fileName).fileName());
+    QHttpPart filePart;
+    QMimeDatabase mdb;
+
+    for (QJsonObject::const_iterator i = data.begin(); i != data.end(); ++i)
+    {
+        QHttpPart part;
+        part.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\""+i.key()+"\""));
+        part.setBody(i.value().toString().toLatin1());
+        multiPart->append(part);
+    }
+    QHttpPart part;
+    part.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
+    part.setBody("udfzTdjAe2uMU82m");
+    multiPart->append(part);
+
+
+
+    qDebug()<<"Uploading: "<<fileNamePart<< "("<<mdb.mimeTypeForFile(fileName).name()<<")";
     filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\"; filename=\"")+fileNamePart+"\""));
     filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(mdb.mimeTypeForFile(fileName).name()));
 
     file->open(QIODevice::ReadOnly);
     filePart.setBodyDevice(file);
     file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
-
-    multiPart->append(devicePart);
-    multiPart->append(typePart);
     multiPart->append(filePart);
-
-    QNetworkRequest request(QUrl("https://api.pushbullet.com/api/pushes"));
-    addAuthentication(request);
+    //QUrl grr(uploadURL);
+    QUrl grr(uploadURL);
+    QNetworkRequest request(grr);
+    //addAuthentication(request);
 
     QNetworkReply *post = networkaccess->post(request, multiPart);
-    connect(post,SIGNAL(uploadProgress(qint64,qint64)),this,SLOT(uploadProgress(int, int)));
+    //connect(post,SIGNAL(uploadProgress(qint64,qint64)),this,SLOT(uploadProgress(int, int)));
     multiPart->setParent(post); // delete the multiPart with the reply
 }
 
@@ -822,7 +836,7 @@ qDebug() << "In " << QString(__FUNCTION__);
         show();
         ui->txtAPIKey->selectAll();
         ui->txtAPIKey->setFocus();
-        error = "No Valid API key provided";
+        error = "No Valid access token provided";
         break;
     case 402:
         error = "Request failed.  Please check your device and try again.";
@@ -859,4 +873,10 @@ void Settings::about()
 {
     qDebug() << "In " << QString(__FUNCTION__);
     QMessageBox::about(this,"About "+qApp->applicationName(),qApp->applicationDisplayName()+". Developed by "+qApp->organizationName()+".\r\nVersion: "+qApp->applicationVersion()+"\r\nIcon from https://inkedicon.deviantart.com/art/Bullet-Game-Icon-322005720");
+}
+
+void Settings::showPushes()
+{
+    QMessageBox::warning(this,"Not implemented.","Show Pushes has not been implemented.");
+    ///TODO - Implement
 }

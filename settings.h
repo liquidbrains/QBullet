@@ -40,6 +40,7 @@ public slots:
     virtual void proxyTypeChanged(const QString &type);
     virtual void getDevices();
     virtual void executeTest();
+    virtual void showPushes();
     virtual void handleResponse(QByteArray &response);
     virtual void loadConfig();
     virtual bool eventFilter(QObject *, QEvent *event);
@@ -64,6 +65,7 @@ private:
     bool showResult;
     bool exitClicked;
     QMap<QString,QString> devices;
+    QString uploadFilePath;
     void addAuthentication(QNetworkRequest &request);
     void processDevices(const QJsonValue &);
     void processSharedDevices(const QJsonValue &);
@@ -79,6 +81,7 @@ protected slots:
     void sendList(QString deviceDescription, const QString &  id);
     void sendLink(QString deviceDescription, const QString &  id);
     void sendFile(QString deviceDescription, const QString &  id);
+    void sendFilePartTwo(const QString &uploadURL, const QJsonObject &data, const QString &fileName);
     void sendText(const QString &  id, QString type, const QString title, QString contentType, const QString content);
     void renameClipboardMenu();
     void handleError(int errorCode, QString serverMessage);
