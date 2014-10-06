@@ -79,6 +79,7 @@ protected slots:
     void sendClipboard(QString deviceDescription, const QString & id);
     void sendAddress(QString deviceDescription, const QString &  id);
     void sendList(QString deviceDescription, const QString &  id);
+    void childKilled(QObject *child);
     void sendLink(QString deviceDescription, const QString &  id);
     void sendFile(QString deviceDescription, const QString &  id);
     void sendFilePartTwo(const QString &uploadURL, const QJsonObject &data, const QString &fileName);

@@ -126,6 +126,7 @@ void Settings::replyReceived(QNetworkReply* reply)
     }
 
     showResult = false;
+    delete reply;
     qDebug() << "Out " << QString(__FUNCTION__);
 }
 
@@ -289,9 +290,6 @@ void Settings::addAuthentication(QNetworkRequest &request)
     QString header = "Basic ";
     header+=(settings->value("apiKey","").toString()+":").toLatin1().toBase64();
     request.setRawHeader(QString("Authorization").toLatin1(),header.toLatin1());
-#ifdef __DEBUG__
-#define QT_DECRYPT_SSL_TRAFFIC
-#endif
 }
 
 void Settings::handleResponse(QByteArray &response)
@@ -465,6 +463,22 @@ void Settings::processDevices(const QJsonValue &response)
     ui->tblDevicesList->clear();
 
     ui->tblDevicesList->setRowCount(devices.count());
+
+    Bullet *bullet = new Bullet(QString("All Devices"),QString(""),foo);
+    connect(bullet,SIGNAL(sendAddress(QString,const QString & )),this,SLOT(sendAddress(QString,const QString &)));
+    connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
+    connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
+    connect(bullet,SIGNAL(sendLink(QString,const QString & )),this,SLOT(sendLink(QString,const QString & )));
+    connect(bullet,SIGNAL(sendFile(QString,const QString & )),this,SLOT(sendFile(QString,const QString & )));
+    connect(bullet,SIGNAL(sendClipboard(QString,const QString & )),this,SLOT(sendClipboard(QString,const QString & )));
+
+    noteMenu->addAction(QString("All Devices"),bullet,SLOT(sendNote()));
+    addressMenu->addAction(QString("All Devices"),bullet,SLOT(sendAddress()));
+    listMenu->addAction(QString("All Devices"),bullet,SLOT(sendList()));
+    fileMenu->addAction(QString("All Devices"),bullet,SLOT(sendFile()));
+    linkMenu->addAction(QString("All Devices"),bullet,SLOT(sendLink()));
+    clipboardMenu->addAction(QString("All Devices"),bullet,SLOT(sendClipboard()));
+
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
@@ -523,6 +537,22 @@ void Settings::processSharedDevices(const QJsonValue &response)
     linkMenu->setEnabled(true);
 
     ui->tblDevicesList->setRowCount(starting_row+devices.count());
+
+    Bullet *bullet = new Bullet(QString("All Devices"),QString(""),foo);
+    connect(bullet,SIGNAL(sendAddress(QString,int)),this,SLOT(sendAddress(QString,const QString & )));
+    connect(bullet,SIGNAL(sendNote(QString,const QString & )),this,SLOT(sendNote(QString,const QString & )));
+    connect(bullet,SIGNAL(sendList(QString,const QString & )),this,SLOT(sendList(QString,const QString & )));
+    connect(bullet,SIGNAL(sendLink(QString,const QString & )),this,SLOT(sendLink(QString,const QString & )));
+    connect(bullet,SIGNAL(sendFile(QString,const QString & )),this,SLOT(sendFile(QString,const QString & )));
+    connect(bullet,SIGNAL(sendClipboard(QString,int)),this,SLOT(sendClipboard(QString,const QString & )));
+
+    noteMenu->addAction(QString("All Devices"),bullet,SLOT(sendNote()));
+    addressMenu->addAction(QString("All Devices"),bullet,SLOT(sendAddress()));
+    listMenu->addAction(QString("All Devices"),bullet,SLOT(sendList()));
+    fileMenu->addAction(QString("All Devices"),bullet,SLOT(sendFile()));
+    linkMenu->addAction(QString("All Devices"),bullet,SLOT(sendLink()));
+    clipboardMenu->addAction(QString("All Devices"),bullet,SLOT(sendClipboard()));
+
     for (int i = 0; i < devices.count(); ++i)
     {
         QJsonObject device(devices[i].toObject());
@@ -573,8 +603,7 @@ void Settings::processResponse(const QJsonObject &response)
     if (devices.contains(response["target_device_iden"].toString()))
     {
         description = devices[response["target_device_iden"].toString()];
-    }
-    else
+    }else
     {
         description = "Unknown device "+response["target_device_iden"].toString();
     }
@@ -630,10 +659,7 @@ void Settings::sendList(QString deviceDescription, const QString &id)
     QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/pushes"));
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
     addAuthentication(request);
-    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
-    qDebug() <<"***************";
-    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
-    //multiPart->setParent(reply); // delete the multiPart with the reply
+    networkaccess->post(request,QJsonDocument(jso).toJson());
 
     qDebug() << "Out " << QString(__FUNCTION__);
 }
@@ -652,7 +678,10 @@ void Settings::sendText(const QString &id, QString type, const QString title, QS
 {
     qDebug() << "In " << QString(__FUNCTION__);
     QJsonObject jso;
-    jso.insert("device_iden",QJsonValue(id));
+
+    if (id != "")
+        jso.insert("device_iden",QJsonValue(id));
+
     jso.insert("type",QJsonValue(QString(type)));
     jso.insert(contentType=="address"?"name":"title",QJsonValue(title));
     jso.insert(contentType,QJsonValue(content));
@@ -660,10 +689,13 @@ void Settings::sendText(const QString &id, QString type, const QString title, QS
     QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/pushes"));
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
     addAuthentication(request);
-    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
-    qDebug() <<"***************";
-    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
 
+    networkaccess->post(request,QJsonDocument(jso).toJson());
+}
+
+void Settings::childKilled(QObject *child)
+{
+    qDebug()<< "Child killed: "<<child;
 }
 
 void Settings::sendFile(QString deviceDescription, const QString &id)
@@ -705,10 +737,18 @@ void Settings::sendFilePrivate(const QString &id, const QString fileName)
     QNetworkRequest request(QUrl("https://api.pushbullet.com/v2/upload-request"));
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
     addAuthentication(request);
-    qDebug()<<"JSO - "<<QJsonDocument(jso).toJson();
-    qDebug() <<"***************";
+
     uploadFilePath= fileName;
-    QNetworkReply *reply = networkaccess->post(request,QJsonDocument(jso).toJson());
+    networkaccess->post(request,QJsonDocument(jso).toJson());
+
+
+    /*
+     * type - Set to file
+     * file_name - The name of the file.
+     * file_type - The MIME type of the file.
+     * file_url - The url for the file. See pushing files for how to get a file_url
+     * body - A message to go with the file.
+     */
 }
 
 void Settings::sendFilePartTwo(const QString &uploadURL, const QJsonObject &data, const QString &fileName)
@@ -726,12 +766,6 @@ void Settings::sendFilePartTwo(const QString &uploadURL, const QJsonObject &data
         part.setBody(i.value().toString().toLatin1());
         multiPart->append(part);
     }
-    QHttpPart part;
-    part.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"device_iden\""));
-    part.setBody("udfzTdjAe2uMU82m");
-    multiPart->append(part);
-
-
 
     qDebug()<<"Uploading: "<<fileNamePart<< "("<<mdb.mimeTypeForFile(fileName).name()<<")";
     filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QString("form-data; name=\"file\"; filename=\"")+fileNamePart+"\""));
@@ -741,10 +775,9 @@ void Settings::sendFilePartTwo(const QString &uploadURL, const QJsonObject &data
     filePart.setBodyDevice(file);
     file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
     multiPart->append(filePart);
-    //QUrl grr(uploadURL);
+
     QUrl grr(uploadURL);
     QNetworkRequest request(grr);
-    //addAuthentication(request);
 
     QNetworkReply *post = networkaccess->post(request, multiPart);
     //connect(post,SIGNAL(uploadProgress(qint64,qint64)),this,SLOT(uploadProgress(int, int)));
