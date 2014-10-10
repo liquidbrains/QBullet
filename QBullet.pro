@@ -18,14 +18,16 @@ SOURCES += main.cpp\
     bullet.cpp \
     prompt.cpp \
     qbulletproxyfactory.cpp \
-    networkaccessmanager.cpp
+    networkaccessmanager.cpp \
+    filepush.cpp
 
 HEADERS  += settings.h \
     logindialog.h \
     bullet.h \
     prompt.h \
     qbulletproxyfactory.h \
-    networkaccessmanager.h
+    networkaccessmanager.h \
+    filepush.h
 
 FORMS    += settings.ui \
     logindialog.ui \
